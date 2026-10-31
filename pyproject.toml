@@ -1,0 +1,90 @@
+[project]
+name = "tiffin"
+dynamic = ["version"]
+description = "Self-hosted nutrition, menu, shopping and training app with a Telegram bot and optional web page."
+readme = "README.md"
+license = "Apache-2.0"
+keywords = ["nutrition", "meal planning", "shopping", "training", "telegram"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Framework :: FastAPI",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Home Automation",
+]
+requires-python = "==3.14.*"
+dependencies = [
+    "pyyaml>=6.0",
+    "jsonschema>=4.23",
+    "tzdata>=2025.2",
+    "fastapi>=0.115",
+    "uvicorn>=0.34",
+    # PDF text extraction for the plan documents people send the bot. Pure Python, no native
+    # build, so the venv stays a `uv sync` on a machine with no compiler.
+    "pypdf>=5.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/mkudriashov/tiffin"
+Repository = "https://github.com/mkudriashov/tiffin"
+Issues = "https://github.com/mkudriashov/tiffin/issues"
+
+[project.scripts]
+tiffin = "tiffin.cli:main"
+tiffin-mcp = "tiffin.mcp_server:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "hypothesis>=6.120",
+    "ruff>=0.9",
+    "pyright>=1.1.390",
+    "openpyxl>=3.1",
+    "httpx>=0.28",
+]
+
+# The build includes entrypoints and packaged configuration for installation outside a checkout.
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/tiffin/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tiffin"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"config" = "tiffin/config"
+"data/cofid" = "tiffin/data/cofid"
+"LICENSE" = "tiffin/LICENSE"
+"NOTICE" = "tiffin/NOTICE"
+"claude-jobs/shop-reader" = "tiffin/claude-jobs/shop-reader"
+
+[tool.ruff]
+line-length = 100
+exclude = ["data", ".uv-cache", ".pytest-tmp", ".startup-tmp", ".*-demo-*", "claude-jobs"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "DTZ", "PL", "RUF"]
+ignore = ["PLR0913", "PLR0917", "PLR0912", "PLR0915", "PLR0911", "PLR2004", "RUF012"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["PLR2004", "PLR0913", "PLR0917", "PLC0415", "DTZ001", "DTZ005"]
+"src/tiffin/advisor/*" = ["E501"]
+
+[tool.pyright]
+typeCheckingMode = "standard"
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.14"
+include = ["src", "tests"]
+exclude = ["data", ".uv-cache", ".venv", ".pytest-tmp", ".startup-tmp"]
+
+[tool.pytest.ini_options]
+addopts = "-q --strict-markers"
+testpaths = ["tests"]
+norecursedirs = [".uv-cache", ".venv", ".pytest-tmp", ".startup-tmp", ".hypothesis", ".git", "data", "claude-jobs"]

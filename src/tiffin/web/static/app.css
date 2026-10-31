@@ -1,0 +1,812 @@
+/* Mobile first, one column, 44 px targets, both colour schemes from the same tokens. */
+:root {
+  --bg: #fcfcfb;
+  --card: #ffffff;
+  --ink: #282828;
+  --muted: #60605d;
+  --line: #deded9;
+  --accent: #2f6f4f;
+  --warn: #9a5b12;
+  --bad: #a32d2d;
+  /* a tint of the accent behind what is chosen or open: the bar's own tab, a ticked line */
+  --chip: #e6f0ea;
+  --radius: 6px;
+  --pad: 16px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #171a1b;
+    --card: #202426;
+    --ink: #f0f1ef;
+    --muted: #b4bbb8;
+    --line: #383e3e;
+    --accent: #79c99d;
+    --warn: #e1b36a;
+    /* white on the error bar has to read at AA: #c94f47 was 4.47:1, this is about 5.5:1 */
+    --bad: #b03d37;
+    --chip: #1d2c25;
+  }
+}
+
+* { box-sizing: border-box; }
+/* Author display rules override the browser's hidden attribute. Keep hidden elements out of
+   layout even when they normally use flex or grid. */
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  padding: 0 var(--pad) 40px;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.45 "IBM Plex Sans", system-ui, sans-serif;
+  max-width: 720px;
+  margin-inline: auto;
+}
+/* the bar at the bottom is fixed; the page ends above it, and above a phone's home indicator */
+body { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+/* the name and the day on one line: two lines of header were a tenth of a phone screen */
+header { display: flex; align-items: baseline; gap: 10px; padding: 16px 0 8px; }
+header p { margin: 0; }
+h1 { font-size: 1.35rem; margin: 0; }
+h2 { font-size: 1.05rem; margin: 20px 0 8px; }
+h3 { font-size: 0.98rem; margin: 14px 0 4px; }
+h4 {
+  font-size: 0.78rem;
+  margin: 10px 0 2px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+p { margin: 6px 0; }
+.muted { color: var(--muted); font-size: 0.88rem; }
+/* the other live shopping list ("Also: the list for Mon 28 Sept..."): a real link, in the
+   page's own green rather than the browser's default blue */
+#shopping-body p.muted a { color: var(--accent); }
+
+/* Five destinations in a bar along the bottom, every one in sight and in reach of the thumb that
+   holds the phone. Eight pills in one sideways row hid half of them
+   behind a fade; the row stayed reachable from wherever a tab scrolled to, and so does this. */
+nav#tabs {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 4px max(6px, env(safe-area-inset-left, 0px)) calc(4px + env(safe-area-inset-bottom, 0px))
+    max(6px, env(safe-area-inset-right, 0px));
+  background: var(--card);
+  border-top: 1px solid var(--line);
+}
+nav#tabs button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  min-height: 56px;
+  padding: 4px 2px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.74rem;
+  cursor: pointer;
+}
+nav#tabs svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+nav#tabs circle { fill: currentColor; stroke: none; }
+/* the open one: its colour, its weight and a tint behind it - never colour alone */
+nav#tabs button.on { color: var(--ink); font-weight: 600; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 5px; }
+
+/* Days, Cook and Recipes over whichever of the three is open: one segmented row, kept in view */
+.views {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 5;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  margin: 0 0 10px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--card);
+}
+.views button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+.views button.on { color: var(--ink); font-weight: 600; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 5px; }
+
+/* one focus ring for everything a keyboard can reach */
+button:focus-visible, a:focus-visible, summary:focus-visible, input:focus-visible,
+select:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.tab { display: none; }
+.tab.on { display: block; }
+/* the section is revealed before its fetch resolves (show()) - this is the only visible sign
+   of that wait besides aria-busy itself, so a slow tailnet does not look like a missed tap */
+.tab[aria-busy="true"] { opacity: .6; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+}
+.card .k { font-size: 0.8rem; color: var(--muted); text-transform: none; }
+.card .v { font-size: 1.5rem; font-variant-numeric: tabular-nums; line-height: 1.15; }
+.card .s { font-size: 0.82rem; color: var(--muted); }
+.card.clickable { cursor: pointer; }
+.card.clickable:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.bar { height: 6px; background: var(--line); border-radius: 999px; margin-top: 8px; overflow: hidden; }
+.bar > i { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+.bar.over > i { background: var(--warn); }
+
+table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+td, th { padding: 9px 6px; border-bottom: 1px solid var(--line); text-align: left; font-size: 0.92rem; }
+/* the header cell too: `td.n` alone left the kcal and Steps headings hanging to the left
+   of the column of figures they name */
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 10px 0; }
+select {
+  min-height: 44px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+}
+label { font-size: 0.88rem; color: var(--muted); }
+input[type="date"], input[type="text"], input[type="search"] {
+  min-height: 44px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  width: 100%;
+}
+/* Navigation and cook-day controls share the same touch target and selected state. */
+.row button {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+/* The selected choice keeps its edge and adds weight and an underline. */
+.row button.on { border-color: var(--accent); color: var(--ink); font-weight: 600; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 5px; }
+/* a day already cooked stays visible so the segment reads whole, but cannot be chosen */
+.row button:disabled { color: var(--muted); border-style: dashed; cursor: default; }
+.row button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+ul.items { list-style: none; padding: 0; margin: 6px 0; }
+ul.items li { border-bottom: 1px solid var(--line); }
+ul.items button, .tickable {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  padding: 8px 2px;
+  cursor: pointer;
+}
+ul.items li.done button { color: var(--muted); text-decoration: line-through; }
+/* the list by meal: a meal is read, not ticked, so its Skip is a real button, not the row-wide
+   tick button `ul.items button` (0,1,2) makes every list button - (0,2,3) here. A skipped meal is
+   said in words ("skipped, nothing bought for it"), and only dimmed beside them */
+ul.items.meals li { padding: 8px 2px; border-bottom: 1px solid var(--line); }
+ul.items.meals li > p { margin: 4px 0 8px; }
+ul.items.meals li > button {
+  width: auto;
+  min-height: 44px;
+  display: inline-flex;
+  padding: 6px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--accent);
+  font-weight: 600;
+}
+ul.items.meals li.skipped > div,
+ul.items.meals li.skipped > p { opacity: 0.6; }
+/* Keep long meal names flexible while reserving enough width for the kcal value. */
+ul.items button > span:first-child,
+.tickable > span:first-child,
+.amount > span:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+ul.items button > span:last-child,
+.tickable > span:last-child,
+.amount > span:last-child {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* a weighed amount is read, not tapped: the same two-column row as a tickable, without the
+   44 px target and the pointer that promise something will happen when you touch it */
+.amount {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  padding: 7px 2px;
+}
+.amount > span:last-child { font-variant-numeric: tabular-nums; color: var(--ink); }
+
+/* the raw-to-cooked calculator: a label, the food, the number off the scales, the answer. On a
+   phone it wraps to two rows rather than squeezing the input to nothing */
+.cooked-calc { margin: 4px 0 2px; }
+.cooked-calc select { max-width: 58%; }
+.cooked-calc input[type="text"] { width: 6.5rem; }
+/* the line that says what to expect out of the pan sits under its own amount, not beside it */
+.amount.cooked { padding-top: 0; font-size: 0.88rem; }
+
+/* add-a-food: five numbers off a label, two to a row on a phone and four on a laptop, each
+   under its own word so "31" is never typed into the fat box */
+.food-form { margin: 6px 0 14px; }
+.food-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+.food-grid label { display: flex; flex-direction: column; gap: 3px; }
+.food-form .row input[type="text"] { width: auto; flex: 1 1 8rem; min-width: 0; }
+
+/* the one write button on Today carried class="primary" and no stylesheet defined it, so the
+   most important control on the page was the browser's own ~24 px grey box */
+.primary {
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  background: var(--card);
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+/* the one action a panel exists for - Avoid, Swap them - filled, so it is not one more pill
+   among the choices around it */
+.primary.fill,
+.foods .primary,
+.row button.primary {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+}
+.primary:disabled { opacity: .6; cursor: default; }
+/* a span that must survive the ellipsis: the shop tag and the fridge credit decide what he
+   picks up, so they never shrink even when the product name has to */
+.keep { flex: 0 1 auto; max-width: 45%; white-space: normal; overflow-wrap: anywhere; text-align: right; color: var(--muted); }
+/* the per-100 g appended inside a clipped name column drops to its own wrapping line rather
+   than being the first thing the ellipsis eats */
+ul.items button > span:first-child > .muted,
+.amount > span:first-child > .muted { display: block; white-space: normal; }
+
+.stars { display: flex; gap: 6px; }
+.stars button {
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+.stars button.on { border-color: var(--accent); color: var(--accent); font-weight: 700; }
+
+#chart { min-height: 320px; margin-top: 6px; }
+/* above the bar at the bottom, never under it */
+#error {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  z-index: 25;
+  max-width: 696px;
+  margin: 0 auto;
+  background: var(--bad);
+  color: #fff;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+#boot-failed {
+  margin: 16px 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+#error button {
+  margin-left: 8px;
+  min-height: 44px;
+  padding: 2px 10px;
+  border-radius: 6px;
+  border: 1px solid #fff;
+  background: none;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.86em; }
+/* one of our own Telegram messages, shown on the page: its line breaks are newline
+   characters, which HTML collapses, so without this the Sunday summary is one wall */
+.sent { white-space: pre-wrap; }
+.slot { border-top: 1px solid var(--line); padding-top: 8px; margin-top: 8px; }
+.slot h3 { margin: 0 0 2px; }
+li.next { border-left: 3px solid var(--accent); padding-left: 6px; }
+.meal-detail { padding: 4px 0 8px; }
+button.link {
+  background: none;
+  border: 0;
+  color: var(--accent);
+  font: inherit;
+  /* 16px x 1.45 + 12 is about 35 px, under the 44 the rest of the page keeps. The links that
+     sit inside a `.row` or a `ul.items` were rescued by those rules and the bare ones - Cook,
+     Open in Menu, Add a food - were not. Both of those out-specify this, so nothing else moves. */
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 6px 10px 6px 0;
+  text-decoration: underline;
+  cursor: pointer;
+}
+/* the admin's status strip: what went wrong on the box, where he already looks - quiet, on the page, never a message */
+#status-strip {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--bad);
+  border-radius: 8px;
+  font-size: 0.88rem;
+}
+#status-strip p { margin: 2px 0; }
+
+/* hands-free cook overlay: full screen, one step at a time, tap either half to advance
+   (phone_layout/09). Dark regardless of colour scheme - a hob at night wants low glare, not a
+   theme match - and padded by the same safe-area insets as `nav` so the close button and the
+   tap zones both clear a notch or a rounded corner (phone_layout/07). */
+#cook-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  background: #14171a;
+  color: #f7f8f9;
+  padding: calc(env(safe-area-inset-top, 0px) + 12px) var(--pad)
+    calc(env(safe-area-inset-bottom, 0px) + 12px);
+}
+#cook-overlay .row { justify-content: space-between; margin: 0; }
+#cook-progress { margin: 0; color: #9aa4ae; }
+#cook-close {
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid #454d55;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+#cook-title { margin: 8px 0 0; font-size: 1.1rem; }
+/* Long steps scroll; the left and right tap zones move backward and forward. */
+#cook-zones { display: flex; gap: 8px; margin-top: 12px; min-height: 28vh; }
+#cook-zones button {
+  flex: 1 1 50%;
+  min-width: 0;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .05);
+  color: inherit;
+  font: inherit;
+  padding: 16px;
+  cursor: pointer;
+  overflow-y: auto;
+}
+#cook-step {
+  flex: 1;
+  overflow-y: auto;
+  margin: 12px 0 0;
+  font-size: 1.4rem;
+  line-height: 1.4;
+  white-space: normal;
+}
+#cook-ings { margin-top: 8px; color: #c9d1d8; }
+#cook-ings summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; }
+#cook-ings ul { margin: 0; padding-left: 18px; }
+#cook-zones button { font-size: 1.2rem; }
+
+/* a deep link (a day or a meal on Menu) scrolls its heading into view; the tab bar wraps to two
+   rows on a phone and covered it */
+[id^="d-"], [id^="plates-"], #foods { scroll-margin-top: calc(var(--nav-h, 64px) + 12px); }
+/* ...and the weekend switch, which a flip of it now lands back on */
+#weekend { scroll-margin-top: calc(var(--nav-h, 64px) + 12px); }
+
+/* "Shelf empty?" is a small link under the item, not a second full-width row: `ul.items button`
+   (0,1,2) made it one, and `li.done button` (0,2,3) struck it through with the item. This is
+   (0,3,3) and wins both. */
+/* what Sainsbury's said about a line with none of its products: a warning unless it was found
+   after all. Its own element under the button, so the clipped one-line name column cannot hide
+   it; (0,2,3) with nothing else in ul.items styling a p. */
+ul.items li > p.shop-note { margin: 0 2px 2px; font-size: 0.85rem; color: var(--warn); }
+/* a dish from the book opened to cook again: a tap target, not a bare triangle */
+details.recipe { margin: 6px 0; }
+details.recipe > summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: var(--accent);
+  font-weight: 600;
+}
+/* what the list counts on being at home already: a row to read, not a button to tick. (0,2,2)
+   out-specifies `ul.items li` (0,1,2); nothing else in ul.items styles a bare li's spans */
+ul.items.at-home li { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 4px 2px; }
+ul.items.at-home li > span:first-child { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+ul.items.at-home li > span:last-child { flex: 0 0 auto; white-space: nowrap; }
+ul.items li > p.shop-note.found { color: var(--muted); }
+
+/* "Shelf empty?" on its own row under the item, with its Undo beside it once tapped. (0,4,3) out-specifies `ul.items button` (0,1,2) and `ul.items li.done button` (0,2,3). */
+ul.items li .out-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+ul.items li .out-row > button.link.out {
+  width: auto;
+  display: inline-flex;
+  min-height: 44px;
+  padding: 0 0 4px;
+  color: var(--accent);
+  text-decoration: underline;
+  font-size: 0.85rem;
+  justify-content: flex-start;
+}
+
+   are the `.row` pills already used for the cook-from days, the one in force `.on` */
+section.weekend {
+  margin: 6px 0 12px;
+  padding: 2px 12px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+section.weekend > h3 { margin: 10px 0 2px; }
+section.weekend > p { margin: 6px 0; }
+section.weekend > .row { margin: 6px 0; }
+
+   and the level it is at on one line; on a phone the name takes its own line above the two */
+details.plates {
+  margin: 6px 0 12px;
+  padding: 4px 12px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+details.plates > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 600; }
+details.plates .plate-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 38%) 7em;
+  gap: 10px;
+  align-items: center;
+  padding: 4px 0;
+}
+details.plates .plate-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+details.plates input[type="range"] { width: 100%; min-height: 44px; accent-color: var(--accent); }
+details.plates > p.shop-note { color: var(--warn); font-size: 0.88rem; }
+details.plates > p.plate-said { color: var(--ink); font-weight: 600; margin: 8px 0 0; }
+/* a box batch-cooked for the week has no slider: the words take the slider's and the level's
+   place. Today's "already eaten" ticks sit on one wrapping line, each a full-size tap target */
+details.plates .plate-row > .boxed { grid-column: 2 / -1; }
+details.plates > .eaten { display: flex; flex-wrap: wrap; align-items: center; gap: 0 16px; margin: 6px 0; }
+details.plates > .eaten label { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; }
+details.plates > .eaten input[type="checkbox"] { width: 20px; height: 20px; margin: 0; }
+@media (max-width: 560px) {
+  details.plates .plate-row { grid-template-columns: minmax(0, 1fr) 6.5em; }
+  details.plates .plate-name { grid-column: 1 / -1; white-space: normal; }
+  details.plates .plate-row > .boxed { grid-column: 1 / -1; }
+}
+
+/* a Menu slot folds shut: every slot fully open made a five-day menu a very long scroll */
+details.slot > summary { list-style: none; cursor: pointer; min-height: 44px; padding: 4px 0; }
+details.slot > summary::-webkit-details-marker { display: none; }
+details.slot > summary h3 { margin: 0; }
+details.slot > summary .muted { margin: 2px 0 0; }
+h3.day { font-size: 1.05rem; margin: 18px 0 4px; border-bottom: 2px solid var(--line); }
+.rate-label { margin: 8px 0 2px; }
+#status-strip > details > summary { cursor: pointer; min-height: 32px; font-weight: 600; }
+
+   foods it keeps out beside it and a 44 px way to take it off, then one box to add more */
+details.foods {
+  margin: 6px 0 12px;
+  padding: 4px 12px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+details.foods > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 600; }
+ul.chips { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; padding: 0; margin: 6px 0; }
+li.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  padding-left: 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg);
+}
+li.chip > span { min-width: 0; overflow-wrap: anywhere; }
+li.chip > span > .muted { font-size: 0.8rem; }
+button.chip-x {
+  min-width: 44px;
+  min-height: 44px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+button.chip-x:focus-visible { outline: 2px solid var(--accent); outline-offset: -4px; border-radius: 999px; }
+form.add-avoid { flex-wrap: nowrap; }
+form.add-avoid input[type="text"] { flex: 1 1 auto; min-width: 0; }
+/* a food avoided that is still on a menu: said in the warning colour, with the way out under it */
+.warn-box {
+  margin: 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--warn);
+  border-radius: 8px;
+}
+.warn-box .row { margin: 6px 0; }
+/* a question asked once (houmous after chickpeas): set apart, the two answers side by side */
+.ask-box {
+  margin: 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+}
+.ask-box p { margin: 0 0 6px; }
+/* swapping a dish for one already eaten: the choices are rows like a shopping list, the name
+   wrapping rather than clipping (dish names run long) and the kcal kept on the right */
+.swap { margin: 4px 0; }
+.swap-area { padding: 2px 0 6px; }
+ul.items.swap-list button > span:first-child { white-space: normal; }
+ul.items.swap-list button > span:first-child > .muted { display: block; }
+.avoid-row { gap: 6px; }
+.size-row { gap: 6px; margin: 4px 0; }
+.size-row button { font-size: 0.85rem; }
+.size-row button.on { border-color: var(--accent); font-weight: 600; }
+p.plate-preview { margin: 8px 0 0; }
+.avoid-row button { font-size: 0.85rem; }
+.avoid-row button[aria-expanded="true"] { border-color: var(--accent); }
+.subst-area { padding: 2px 0 6px 8px; border-left: 2px solid var(--line); }
+p.plate-said { color: var(--ink); font-weight: 600; margin: 8px 0 0; }
+
+/* a cook's heading over its days: it read at the size of each day's heading under it, so Mon-Wed
+   and Thu-Fri did not read as two separate cooks */
+h2.segment { font-size: 1.2rem; margin-top: 26px; }
+
+/* the status strip's one line and the other list's link are things a thumb taps: 44 px */
+#status-strip summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; }
+#shopping-body p.muted a { display: inline-flex; align-items: center; min-height: 44px; }
+.tickable.wrap > span:first-child { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
+
+/* ---------------------------------------------------------------- Today */
+/* the day either side, the date and the way back to today on one short row */
+#today-date { flex-wrap: nowrap; gap: 6px; margin-top: 0; }
+#today-date input[type="date"] { flex: 1 1 auto; min-width: 0; width: auto; }
+#today-date button.step { min-width: 44px; padding: 0; font-size: 1.3rem; line-height: 1; }
+/* the meal it is time for: first, large, with the tap that cooks it */
+.next-meal {
+  margin: 14px 0 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+.next-meal .eyebrow {
+  margin: 0;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+.next-meal h2 { margin: 2px 0 2px; font-size: 1.15rem; }
+.next-meal .row { margin: 8px 0 0; }
+.the-day { margin-top: 8px; }
+.the-day .row { margin: 6px 0; }
+/* a panel folded to one line until it is wanted: the Sunday summary, the
+   longer chart, the lines already in the trolley */
+details.fold {
+  margin: 12px 0;
+  padding: 2px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+details.fold > summary {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  cursor: pointer;
+}
+details.fold[open] > summary { border-bottom: 1px solid var(--line); margin-bottom: 6px; }
+
+/* ---------------------------------------------------------------- Shopping */
+/* how far through the shop: a line and a bar, kept in view while the list scrolls */
+.trolley {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 4;
+  margin: 8px 0 4px;
+  padding: 8px 0 6px;
+  background: var(--bg);
+}
+.trolley p { margin: 0 0 4px; }
+/* One line per food: a box to tick, the food, how many and what they cost, and a small button for
+   everything else. Every selector here out-specifies `ul.items button` (0,1,2) and its span rules
+   (0,2,3), which were written for a name-and-value row. */
+ul.items.shop li { padding: 2px 0; }
+ul.items.shop li .line { display: flex; align-items: stretch; gap: 2px; }
+ul.items.shop .line > button.tick { flex: 1 1 auto; min-width: 0; gap: 12px; padding: 10px 2px; }
+ul.items.shop .tick > .box {
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--muted);
+  border-radius: 6px;
+  position: relative;
+}
+ul.items.shop li.done .tick > .box { background: var(--accent); border-color: var(--accent); }
+ul.items.shop li.done .tick > .box::after {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 2px;
+  width: 6px;
+  height: 12px;
+  border: solid var(--bg);
+  border-width: 0 2.5px 2.5px 0;
+  transform: rotate(45deg);
+}
+ul.items.shop .tick > .what {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  white-space: normal;
+  overflow: visible;
+}
+ul.items.shop .tick > .what > .name { overflow-wrap: anywhere; }
+ul.items.shop .tick > .what > .sub { font-size: 0.82rem; }
+ul.items.shop .tick > .qty {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
+}
+ul.items.shop li.done .tick { text-decoration: none; }
+ul.items.shop li.done .tick > .what > .name { text-decoration: line-through; }
+ul.items.shop .line > button.more {
+  flex: 0 0 44px;
+  width: 44px;
+  justify-content: center;
+  padding: 0;
+  color: var(--muted);
+  font-size: 1.2rem;
+}
+ul.items.shop .line > button.more[aria-expanded="true"] { color: var(--accent); }
+ul.items.shop .chev {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform .15s;
+}
+ul.items.shop button.more[aria-expanded="true"] .chev { transform: rotate(180deg); }
+ul.items.shop .item-detail { padding: 0 48px 8px 38px; }
+ul.items.shop .item-detail p { margin: 2px 0; }
+ul.items.shop li > p.shop-note { margin: -4px 48px 6px 38px; }
+details.trolley-done ul.items.shop li { opacity: .85; }
+
+/* ---------------------------------------------------------------- More */
+.more-group {
+  margin: 12px 0;
+  padding: 2px 14px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+.more-group > h2 { margin: 12px 0 4px; }
+/* How you plan: each question a small heading over its row of answers */
+.more-group > h3 { margin: 12px 0 0; font-size: 0.86rem; font-weight: 600; color: var(--muted); }
+.plan-group .row { margin: 6px 0; }
+/* Save waits for a change: plainly not an answer of its own until there is one to save */
+.plan-group .row button.primary:disabled {
+  background: var(--card); color: var(--muted); border-color: var(--line); border-style: dashed; opacity: 1;
+}
+.more-group a { color: var(--accent); }
+
+/* the word on a dish, inside a meal on Today: two pills, not the list's full-width rows that
+   every button in ul.items otherwise becomes */
+ul.items .dish-word button {
+  width: auto;
+  display: inline-flex;
+  justify-content: center;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+}
+ul.items .dish-word button.on { border-color: var(--accent); background: var(--accent); color: var(--bg); font-weight: 600; }
+
+/* each pack a shop opens and the days it is for */
+.packs { max-width: 40rem; margin: 0.75rem 0; padding: 0.5rem 0.75rem; border: 1px solid var(--line);
+  border-radius: var(--radius); background: var(--card); }
+.packs h3 { margin: 0 0 0.25rem; font-size: 0.95rem; }
+.packs .pack-lines { margin: 0; padding-left: 1.1rem; }
+.packs .pack-lines li { margin: 0.15rem 0; }
+.cover-note { margin: 0.1rem 0 0.4rem 2.2rem; font-size: 0.9rem; }
+.note-box.freeze { padding: 0.5rem 0.75rem; border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--card); }
+.packs .row { margin-top: 0.4rem; flex-wrap: wrap; }
+.have .have-line { padding: 0.4rem 0; }
+
+/* where a meal's meat or fish comes from, under its name */
+.from-pack { margin: 0.1rem 0 0; font-size: 0.85em; }

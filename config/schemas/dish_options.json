@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "dish_options",
+  "description": "Several dishes for one meal slot, offered across the weekdays to choose from (food/choices.py): each a recipe over numbered catalogue ingredients. Indexes and grams only; no totals, no macros.",
+  "type": "object",
+  "properties": {
+    "options": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60
+          },
+          "ingredients": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 12,
+            "items": {
+              "type": "object",
+              "properties": {
+                "i": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "index into the numbered ingredient list"
+                },
+                "g": {
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 2000,
+                  "description": "grams per serving"
+                }
+              },
+              "required": [
+                "i",
+                "g"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "method": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 12,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          "prep_minutes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 120
+          }
+        },
+        "required": [
+          "name",
+          "ingredients",
+          "method",
+          "prep_minutes"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "options"
+  ],
+  "additionalProperties": false
+}

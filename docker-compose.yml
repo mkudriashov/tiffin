@@ -1,0 +1,11 @@
+services:
+  tiffin:
+    build: .
+    restart: unless-stopped
+    environment:
+      TIFFIN_HOME: /data
+      TIFFIN_TELEGRAM_TOKEN: ${TIFFIN_TELEGRAM_TOKEN:-}
+    volumes:
+      - tiffin-data:/data
+volumes:
+  tiffin-data:

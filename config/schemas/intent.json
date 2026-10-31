@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "intent",
+  "description": "What a free-text message asks for. The payload is checked again by the handler; the person confirms by tap before anything is written.",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": ["log_offplan", "confirm_day", "rate_dish", "set_pause", "set_plan", "set_profile"]
+    },
+    "payload": {"type": "object"}
+  },
+  "required": ["kind", "payload"],
+  "additionalProperties": false
+}

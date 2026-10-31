@@ -1,0 +1,14 @@
+[Unit]
+Description=Tiffin
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment=TIFFIN_HOME=%h/.local/share/tiffin
+ExecStart=%h/.local/bin/tiffin run
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

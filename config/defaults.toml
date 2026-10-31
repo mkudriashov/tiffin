@@ -1,0 +1,129 @@
+
+[env]
+default = "prod"
+tz = "Europe/London"
+country = "GB"
+
+[persons.owner]
+display_name = ""
+chat_id = 0
+
+[persons.partner]
+display_name = ""
+chat_id = 0
+
+[telegram]
+poll_timeout_s = 50
+http_timeout_extra_s = 15
+max_chars = 4000
+admin_slug = "owner"
+alert_cooldown_min = 180
+
+[web]
+enabled = true
+host = "127.0.0.1"
+port_prod = 7788
+port_dev = 7789
+root_path = "/tiffin"
+identity_mode = "header"
+origin = "https://tiffin.example.ts.net"
+secure_cookies = true
+
+[units]
+weight = "kg"
+height = "cm"
+currency = "GBP"
+
+[household]
+partner_expected = false
+
+[chrome]
+profile_directory = "Default"
+shop_refresh_enabled = false
+shop_fill_enabled = false
+
+[shop]
+retailers = []
+retailer = ""
+batch = 6
+bought_elsewhere = []
+
+[shop.search_urls]
+tesco = "https://www.tesco.com/groceries/en-GB/search?query={q}"
+sainsburys = "https://www.sainsburys.co.uk/gol-ui/SearchResults/{q}"
+ocado = "https://www.ocado.com/search?q={q}"
+marks_spencer = "https://www.ocado.com/search?q=M%26S%20{q}"
+wholefoods = "https://www.amazon.co.uk/s?k=whole+foods+market+{q}"
+
+[models]
+claude_model = "opus"
+cap_usd = false
+chrome_model = "haiku"
+claude_exe = "claude"
+claude_block_initial_min = 30
+claude_block_max_min = 300
+shuffle_catalogue = true
+
+[model]
+provider = "claude-cli"
+# Model defaults: claude-cli opus; anthropic claude-sonnet-4-5; openai gpt-4.1-mini;
+# openai-compatible requires a model name and base_url; none makes all model tasks manual.
+model = ""
+base_url = ""
+auth_style = "bearer"
+# Operator-set count of API HTTP attempts per local day, across all people and tasks.
+# This is a request limit, not a USD spending cap; retries and doctor probes count.
+api_requests_per_day = 50
+# Optional per-task names, for example [model.tasks] intent = "gpt-4.1-mini".
+
+[budgets]
+menu_propose = [420, 3, 2.50]
+menu_shared = [300, 3, 3.00]
+menu_one_dish = [180, 3, 2.00]
+menu_choices = [420, 3, 4.00]
+offplan_estimate = [90, 1, 0.30]
+sunday_prose = [120, 1, 0.40]
+chat = [180, 8, 0.60]
+shop_refresh = [1800, 60, 2.00]
+plan_parse = [90, 1, 0.30]
+intent = [60, 1, 0.20]
+
+[schedule]
+tick_s = 30
+icu_sync_minute = 10
+day_close = "00:05"
+menu_propose_days_before = 2
+menu_propose_time = "18:00"
+shopping_list_time = "18:00"
+shopping_joint_time = "18:00"
+weekly_calibration = "17:30"
+sunday_summary = "19:00"
+backup = "03:30"
+
+[guardrails]
+rate_pct_min = 0.5
+rate_pct_max = 1.0
+max_loss_kg_week = 0.8
+auto_adjust_kcal = 150
+auto_adjust_protein_g = 10
+min_usable_days = 5
+ewma_alpha = 0.10
+kcal_tolerance_pct = 5
+fibre_min = 25
+fibre_max = 35
+kcal_per_kg_fat = 7700
+mains_per_window = 2
+
+[icu]
+base_url = "https://intervals.icu/api/v1"
+wellness_days = 14
+activity_days = 3
+wellness_days_warm = 90
+activity_days_warm = 30
+budget_per_hour = 60
+
+[ops]
+heartbeat_s = 30
+heartbeat_stale_s = 180
+log_keep_days = 90
+backup_keep_days = 30

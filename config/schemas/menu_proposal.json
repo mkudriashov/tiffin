@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "menu_proposal",
+  "description": "A cook segment: days, each with meal slots, each a recipe over numbered catalogue ingredients, and optionally one alternative for a slot that is the same all segment. Indexes and grams only; no totals, no macros.",
+  "type": "object",
+  "properties": {
+    "days": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "properties": {
+          "day": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "slots": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 5,
+            "items": {
+              "type": "object",
+              "properties": {
+                "slot": {
+                  "type": "string",
+                  "enum": [
+                    "breakfast",
+                    "lunch",
+                    "dinner",
+                    "snack",
+                    "pre_bed"
+                  ]
+                },
+                "recipe": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 60
+                    },
+                    "ingredients": {
+                      "type": "array",
+                      "minItems": 1,
+                      "maxItems": 12,
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "i": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "description": "index into the numbered ingredient list"
+                          },
+                          "g": {
+                            "type": "number",
+                            "minimum": 1,
+                            "maximum": 2000,
+                            "description": "grams per serving"
+                          }
+                        },
+                        "required": [
+                          "i",
+                          "g"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "method": {
+                      "type": "array",
+                      "minItems": 1,
+                      "maxItems": 12,
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      }
+                    },
+                    "prep_minutes": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 120
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "ingredients",
+                    "method",
+                    "prep_minutes"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "slot",
+                "recipe"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "day",
+          "slots"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "alternatives": {
+      "type": "array",
+      "maxItems": 6,
+      "description": "Optional: a second dish for a slot that is the same all segment; Tiffin chooses between them.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "slot": {
+            "type": "string",
+            "enum": [
+              "breakfast",
+              "lunch",
+              "dinner",
+              "snack",
+              "pre_bed"
+            ]
+          },
+          "recipe": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 60
+              },
+              "ingredients": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 12,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "i": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "description": "index into the numbered ingredient list"
+                    },
+                    "g": {
+                      "type": "number",
+                      "minimum": 1,
+                      "maximum": 2000,
+                      "description": "grams per serving"
+                    }
+                  },
+                  "required": [
+                    "i",
+                    "g"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "method": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 12,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                }
+              },
+              "prep_minutes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 120
+              }
+            },
+            "required": [
+              "name",
+              "ingredients",
+              "method",
+              "prep_minutes"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "slot",
+          "recipe"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "days"
+  ],
+  "additionalProperties": false
+}

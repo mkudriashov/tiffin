@@ -1,0 +1,10 @@
+{
+  "name": "Tiffin",
+  "short_name": "Tiffin",
+  "start_url": "{{ROOT}}",
+  "scope": "{{ROOT}}",
+  "display": "standalone",
+  "background_color": "#fcfcfb",
+  "theme_color": "#fcfcfb",
+  "icons": []
+}

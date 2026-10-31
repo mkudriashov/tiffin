@@ -1,0 +1,1363 @@
+# Ingredient catalogue: the foods the menu generator may use, two people cooking at home in the UK.
+#
+# `tiffin catalogue build` joins this file with data/cofid/cofid_2021_proximates.csv (CoFID 2021,
+# per 100 g as published, OGL v3 — see data/cofid/LICENCE-OGL3.txt) and inserts a new
+# `ingredients` version row whenever anything about a code changes. Never edit a CoFID number
+# here; the row is referenced by `cofid_code`. Two documented exceptions exist:
+#   fibre_100   fills a fibre that CoFID marks N (present, amount not quantified) or leaves blank.
+#               Without it the row is stored with approved = 0 and never offered to the model.
+#   macros_100  label values for a food CoFID does not carry (kcal, protein_g, fat_g, carb_g,
+#               fibre_g per 100 g). Say where the numbers came from.
+# Per-100 g values are for the food as bought (raw / dry / drained) unless the name says otherwise,
+# because that is the weight the recipe lists and the shopping list buys.
+#
+# pack_g is the grams one purchase unit yields (drained weight for tins, 6 x 58 g for eggs);
+# the shopping list rounds up to whole packs and carries the remainder as a leftover.
+# pack_sizes_g lists other common unbranded pack sizes for least-waste planning.
+# pantry: true  never appears on a shopping list — oil, salt, spices, rice, pasta, oats.
+# use_whole_pack: true  the solver pins the segment's use of it to whole packs.
+# person_scope: both | owner | partner.  aliases: other names the catalogue accepts exactly.
+
+aisles: [produce, meat, fish, dairy, bakery, grains, tins, frozen, condiments]
+
+ingredients:
+  # ---------------------------------------------------------------- produce
+  - code: potatoes
+    name: Potatoes, raw
+    cofid_code: 13-489
+    pack_g: 2000
+    pack_sizes_g: [1000, 2500]
+    pack_label: 2 kg bag
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [potatoes, potato, white potatoes, baking potatoes, maris piper potatoes]
+  - code: sweet_potato
+    name: Sweet potato, raw
+    cofid_code: 13-463
+    fibre_100: 3.0  # CoFID blank; USDA SR Legacy 11507 "Sweet potato, raw, unprepared" 3.0 g
+    pack_g: 1000
+    pack_label: 1 kg bag
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [sweet potato, sweet potatoes]
+  # The model cooks only with catalogue foods, so vegetables and seasonings need variety here.
+  - code: leeks
+    name: Leeks, raw
+    cofid_code: 13-624
+    pack_g: 500
+    pack_label: 500 g pack
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [leek, leeks]
+  - code: parsnips
+    name: Parsnips, raw
+    cofid_code: 13-312
+    pack_g: 500
+    pack_label: 500 g pack
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [parsnip, parsnips]
+  - code: red_cabbage
+    name: Red cabbage, raw
+    cofid_code: 13-190
+    pack_g: 900
+    pack_label: 1 red cabbage
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [red cabbage]
+  - code: aubergine
+    name: Aubergine, raw
+    cofid_code: 13-161
+    fibre_100: 3.0  # CoFID blank; USDA SR Legacy 11209 "Eggplant, raw" 3.0 g
+    pack_g: 250
+    pack_label: 1 aubergine
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [aubergine, aubergines, eggplant]
+  - code: butternut_squash
+    name: Butternut squash, raw
+    cofid_code: 13-355
+    fibre_100: 2.0  # CoFID blank; USDA SR Legacy 11485 "Squash, winter, butternut, raw" 2.0 g
+    pack_g: 1000
+    pack_label: 1 squash
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [butternut squash, butternut, squash]
+  - code: asparagus
+    name: Asparagus, raw
+    cofid_code: 13-157
+    fibre_100: 2.1  # CoFID blank; USDA SR Legacy 11011 "Asparagus, raw" 2.1 g
+    pack_g: 250
+    pack_label: 250 g bunch
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [asparagus, asparagus tips]
+  - code: brussels_sprouts
+    name: Brussels sprouts, raw
+    cofid_code: 13-177
+    fibre_100: 3.8  # CoFID blank; USDA SR Legacy 11098 "Brussels sprouts, raw" 3.8 g
+    pack_g: 500
+    pack_label: 500 g pack
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [brussels sprouts, brussel sprouts, sprouts]
+  - code: spring_onions
+    name: Spring onions, raw
+    cofid_code: 13-352  # "Spring onions, bulbs and tops, raw"
+    fibre_100: 2.6  # CoFID blank; USDA SR Legacy 11291 "Onions, spring or scallions, raw" 2.6 g
+    pack_g: 100
+    pack_label: 1 bunch
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [spring onion, spring onions, scallion, scallions, green onions]
+  - code: lemon_juice
+    name: Lemon juice, fresh
+    cofid_code: 14-277
+    fibre_100: 0.3  # CoFID blank; USDA SR Legacy 9152 "Lemon juice, raw" 0.3 g
+    pack_g: 40
+    pack_label: 1 lemon
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [lemon, lemons, lemon juice, juice of a lemon, fresh lemon]
+  - code: lime_juice
+    name: Lime juice, fresh
+    cofid_code: 14-279
+    fibre_100: 0.4  # CoFID blank; USDA SR Legacy 9160 "Lime juice, raw" 0.4 g
+    pack_g: 30
+    pack_label: 1 lime
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [lime, limes, lime juice, juice of a lime]
+  - code: coriander_fresh
+    name: Coriander, fresh
+    cofid_code: 13-888
+    pack_g: 30
+    pack_label: 30 g pack
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [coriander, fresh coriander, cilantro]
+  - code: basil_fresh
+    name: Basil, fresh
+    cofid_code: 13-804
+    fibre_100: 1.6  # CoFID blank; USDA SR Legacy 2044 "Basil, fresh" 1.6 g
+    pack_g: 30
+    pack_label: 30 g pack
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [basil, fresh basil]
+  - code: parsley_fresh
+    name: Parsley, fresh
+    cofid_code: 13-844
+    fibre_100: 3.3  # CoFID blank; USDA SR Legacy 11297 "Parsley, fresh" 3.3 g
+    pack_g: 30
+    pack_label: 30 g pack
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [parsley, fresh parsley, flat leaf parsley]
+  - code: chives_fresh
+    name: Chives, fresh
+    cofid_code: 13-887
+    pack_g: 20
+    pack_label: 20 g pack
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [chives, fresh chives]
+  - code: broccoli
+    name: Broccoli, raw
+    cofid_code: 13-502
+    pack_g: 350
+    pack_sizes_g: [500]
+    pack_label: 350 g head
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [broccoli, broccoli florets, tenderstem broccoli]
+  - code: spinach
+    name: Spinach, baby, raw
+    cofid_code: 13-521
+    pack_g: 240
+    pack_sizes_g: [200, 400]
+    pack_label: 240 g bag
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [spinach, baby spinach, spinach leaves]
+  - code: red_pepper
+    name: Red pepper, raw
+    cofid_code: 13-524
+    pack_g: 480
+    pack_label: 3 peppers
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [red pepper, red peppers, bell pepper, bell peppers, peppers, capsicum]
+  - code: onions
+    name: Onions, raw
+    cofid_code: 13-499
+    pack_g: 1000
+    pack_sizes_g: [500, 1500]
+    pack_label: 1 kg bag
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [onion, onions, brown onion, red onion, white onion]
+  - code: tomatoes
+    name: Tomatoes, raw
+    cofid_code: 13-517
+    pack_g: 500
+    pack_sizes_g: [250, 750]
+    pack_label: 6 tomatoes
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [tomato, tomatoes, salad tomatoes, vine tomatoes]
+  - code: cherry_tomatoes
+    name: Cherry tomatoes, raw
+    cofid_code: 13-519
+    pack_g: 250
+    pack_label: 250 g punnet
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [cherry tomatoes, cherry tomato, baby plum tomatoes]
+  - code: carrots
+    name: Carrots, raw
+    cofid_code: 13-496
+    pack_g: 1000
+    pack_sizes_g: [500, 1500]
+    pack_label: 1 kg bag
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [carrot, carrots, raw carrots]
+  - code: courgette
+    name: Courgette, raw
+    cofid_code: 13-627
+    pack_g: 500
+    pack_label: 3 courgettes
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [courgette, courgettes, zucchini]
+  - code: mushrooms
+    name: Mushrooms, white, raw
+    cofid_code: 13-505
+    pack_g: 250
+    pack_label: 250 g pack
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [mushrooms, mushroom, white mushrooms, chestnut mushrooms, button mushrooms]
+  - code: bananas
+    name: Bananas
+    cofid_code: 14-318
+    pack_g: 600
+    pack_label: 5 bananas
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [banana, bananas, medium banana]
+  - code: apples
+    name: Apples, eating, raw
+    cofid_code: 14-319
+    pack_g: 900
+    pack_label: 6 apples
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [apple, apples, pink lady apple, gala apple, braeburn apple]
+  - code: blueberries
+    name: Blueberries
+    cofid_code: 14-325
+    pack_g: 150
+    pack_label: 150 g punnet
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [blueberries, blueberry, fresh blueberries]
+  - code: strawberries
+    name: Strawberries, raw
+    cofid_code: 14-324
+    pack_g: 400
+    pack_label: 400 g punnet
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [strawberries, strawberry, fresh strawberries]
+  - code: avocado
+    name: Avocado, Hass
+    cofid_code: 14-386
+    pack_g: 300
+    pack_label: 2 avocados
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [avocado, avocados, hass avocado, half avocado]
+  - code: cucumber
+    name: Cucumber, raw
+    cofid_code: 13-523
+    pack_g: 400
+    pack_label: 1 cucumber
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [cucumber, cucumbers]
+  - code: garlic
+    name: Garlic, raw
+    cofid_code: 13-244
+    fibre_100: 2.1  # CoFID blank; USDA SR Legacy 11215 "Garlic, raw" 2.1 g
+    pack_g: 50
+    pack_label: 1 bulb
+    aisle: produce
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [garlic, garlic clove, garlic cloves, fresh garlic]
+  - code: lettuce
+    name: Lettuce, raw
+    cofid_code: 13-520
+    pack_g: 300
+    pack_label: 1 lettuce
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [lettuce, salad leaves, mixed leaves, romaine lettuce, little gem]
+  - code: cauliflower
+    name: Cauliflower, raw
+    cofid_code: 13-512
+    pack_g: 700
+    pack_label: 1 head
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [cauliflower, cauliflower florets, cauliflower rice]
+  - code: oranges
+    name: Oranges
+    cofid_code: 14-327
+    pack_g: 600
+    pack_label: 4 oranges
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [orange, oranges, medium orange]
+  - code: green_beans
+    name: Green beans, raw
+    cofid_code: 13-514
+    pack_g: 200
+    pack_label: 200 g pack
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [green beans, fine beans, french beans]
+  - code: ginger
+    name: Ginger, fresh
+    cofid_code: 13-890
+    pack_g: 100
+    pack_label: 100 g root
+    aisle: produce
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [ginger, fresh ginger, root ginger]
+  - code: tofu
+    name: Tofu, firm
+    cofid_code: 13-570
+    # CoFID fibre is N and no label value has been entered, so this row is stored unapproved
+    # until someone adds `fibre_100` from the pack. Left that way on purpose.
+    pack_g: 400
+    pack_label: 400 g pack
+    aisle: produce
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [tofu, firm tofu, cauldron tofu, extra firm tofu]
+
+  # ---------------------------------------------------------------- meat
+  - code: chicken_breast
+    name: Chicken breast, raw
+    cofid_code: 18-290  # "Chicken, light meat, raw"
+    pack_g: 500
+    pack_sizes_g: [300, 650, 1000]
+    pack_label: 500 g pack
+    aisle: meat
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases:
+      [chicken breast, chicken breast fillets, chicken breast fillet, chicken fillet,
+       chicken fillets, diced chicken breast, chicken]
+  - code: chicken_thigh
+    name: Chicken thigh fillets, skinless, raw
+    cofid_code: 18-289  # "Chicken, dark meat, raw"
+    pack_g: 500
+    pack_label: 500 g pack
+    aisle: meat
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [chicken thigh, chicken thighs, chicken thigh fillets, boneless chicken thighs]
+  - code: beef_mince_5
+    name: "Beef mince 5% fat, raw"
+    cofid_code: 18-508  # "Beef, mince, raw, extra lean"
+    fibre_100: 0  # CoFID N; meat carries no fibre (CoFID codes standard raw mince 18-469 as 0.0)
+    pack_g: 500
+    pack_sizes_g: [250, 750]
+    pack_label: 500 g pack
+    aisle: meat
+    pantry: false
+    use_whole_pack: true
+    person_scope: both
+    aliases:
+      [beef mince, lean beef mince, "5% beef mince", extra lean beef mince, minced beef,
+       ground beef, "5% fat beef mince"]
+  - code: pork_loin
+    name: Pork loin steaks, raw
+    cofid_code: 18-536  # "Pork, loin chops, raw, lean and fat"
+    pack_g: 500
+    pack_label: 4 steaks
+    aisle: meat
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [pork loin, pork loin steaks, pork chops, pork steaks, pork loin medallions]
+  - code: bacon_back
+    name: Back bacon, fat trimmed, raw
+    cofid_code: 19-646
+    pack_g: 240
+    pack_label: 8 rashers
+    unit: {name: rasher, g: 30}  # served whole
+    aisle: meat
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [bacon, back bacon, bacon medallions, bacon rashers, smoked back bacon]
+  - code: turkey_breast
+    name: Turkey breast, raw
+    cofid_code: 18-349  # "Turkey, light meat, raw"
+    pack_g: 500
+    pack_label: 500 g pack
+    aisle: meat
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [turkey breast, turkey breast steaks, turkey steaks, turkey breast fillets, turkey]
+  - code: pork_sausages
+    name: Pork sausages, raw
+    cofid_code: 19-510
+    pack_g: 400
+    pack_label: 6 sausages
+    unit: {name: sausage, g: 67}  # served whole
+    aisle: meat
+    pantry: false
+    use_whole_pack: true
+    person_scope: both
+    aliases: [sausages, pork sausages, sausage, cumberland sausages]
+
+  # ---------------------------------------------------------------- fish
+  - code: salmon
+    name: Salmon fillets, raw
+    cofid_code: 16-356  # "Salmon, farmed, flesh only, raw"
+    pack_g: 240
+    pack_sizes_g: [480]
+    pack_label: 2 fillets
+    aisle: fish
+    pantry: false
+    use_whole_pack: true
+    person_scope: both
+    aliases: [salmon, salmon fillet, salmon fillets, fresh salmon, atlantic salmon]
+  - code: cod
+    name: Cod fillets, raw
+    cofid_code: 16-372
+    pack_g: 280
+    pack_label: 2 fillets
+    aisle: fish
+    pantry: false
+    use_whole_pack: true
+    person_scope: both
+    aliases: [cod, cod fillet, cod fillets, cod loin, white fish]
+  - code: prawns
+    name: King prawns, raw
+    cofid_code: 16-387
+    pack_g: 150
+    pack_label: 150 g pack
+    aisle: fish
+    pantry: false
+    use_whole_pack: true
+    person_scope: both
+    aliases: [prawns, king prawns, raw prawns, raw king prawns, shrimp]
+
+  # ---------------------------------------------------------------- dairy and eggs
+  - code: eggs
+    name: Eggs, whole, raw
+    cofid_code: 12-937
+    pack_g: 348  # 6 x 58 g (UK medium)
+    pack_sizes_g: [696]  # 12 medium eggs
+    pack_label: 6 eggs
+    unit: {name: egg, g: 58}  # served whole
+    aisle: dairy
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [egg, eggs, whole egg, large egg, medium egg, free range eggs, boiled egg]
+  - code: greek_yoghurt_0
+    name: "Greek yoghurt 0% fat"
+    cofid_code: null  # CoFID 12-555 is full-fat Greek style; the 0% product is not listed
+    macros_100: {kcal: 57, protein_g: 10.3, fat_g: 0, carb_g: 3.0, fibre_g: 0}  # Fage Total 0% label
+    pack_g: 500
+    pack_label: 500 g tub
+    aisle: dairy
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases:
+      [greek yoghurt, greek yogurt, "0% greek yogurt", "0% greek yoghurt", "fage total 0%",
+       fat free greek yogurt, greek style yogurt]
+  - code: skyr
+    name: Skyr, natural
+    cofid_code: null  # not in CoFID 2021
+    macros_100: {kcal: 63, protein_g: 11, fat_g: 0.2, carb_g: 4.0, fibre_g: 0}  # Arla Skyr natural label
+    pack_g: 450
+    pack_sizes_g: [150, 500]
+    pack_label: 450 g tub
+    aisle: dairy
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [skyr, arla skyr, natural skyr, skyr natural]
+  - code: cottage_cheese
+    name: Cottage cheese
+    cofid_code: 12-539
+    pack_g: 300
+    pack_label: 300 g tub
+    aisle: dairy
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [cottage cheese, natural cottage cheese, plain cottage cheese]
+  - code: whey
+    name: Whey protein powder
+    cofid_code: null  # not in CoFID 2021
+    # day. Kept in step here so `catalogue build` cannot quietly put the generic 400 kcal back.
+    # Every field is the tub as saved from the page (version 3): a rebuild compares ALL of them,
+    # so the pack, the aisle and the pantry flag have to match too or it writes a version 4.
+    macros_100: {kcal: 361, protein_g: 79, fat_g: 1.9, carb_g: 3.3, fibre_g: 0}
+    pack_g: 2264
+    pack_label: 2.26 kg tub
+    aisle: grains
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [whey, whey protein, protein powder, impact whey, whey protein powder, protein shake]
+  - code: cheddar
+    name: Cheddar cheese
+    cofid_code: 12-346
+    pack_g: 350
+    pack_label: 350 g block
+    aisle: dairy
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [cheddar, cheddar cheese, mature cheddar, grated cheddar, cheese, grated cheese]
+  - code: mozzarella
+    name: Mozzarella, fresh
+    cofid_code: 12-360
+    pack_g: 125
+    pack_label: 125 g ball
+    aisle: dairy
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [mozzarella, mozzarella ball, fresh mozzarella]
+  - code: feta
+    name: Feta cheese
+    cofid_code: 12-525
+    pack_g: 200
+    pack_label: 200 g pack
+    aisle: dairy
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [feta, feta cheese, greek feta]
+  - code: halloumi
+    name: Halloumi
+    cofid_code: 12-496
+    pack_g: 225
+    pack_label: 225 g pack
+    aisle: dairy
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [halloumi, halloumi cheese, grilling cheese]
+  - code: parmesan
+    name: Parmesan
+    cofid_code: 12-526
+    pack_g: 200
+    pack_label: 200 g wedge
+    aisle: dairy
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [parmesan, parmigiano reggiano, grana padano, grated parmesan]
+  - code: milk_semi
+    name: Milk, semi-skimmed
+    cofid_code: 12-313
+    pack_g: 1136  # 2 pints; 1 ml counted as 1 g
+    pack_sizes_g: [1000, 2000]
+    pack_label: 2 pint carton
+    aisle: dairy
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [milk, semi skimmed milk, semi-skimmed milk, "2% milk", semi skimmed]
+  - code: butter
+    name: Butter, salted
+    cofid_code: 17-685
+    pack_g: 250
+    pack_label: 250 g block
+    aisle: dairy
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [butter, salted butter, unsalted butter, lurpak]
+  - code: cream_cheese_light
+    name: Soft cheese, low fat
+    cofid_code: 12-541  # "Cheese, spreadable, soft white, low fat"
+    pack_g: 180
+    pack_label: 180 g tub
+    aisle: dairy
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [cream cheese, light cream cheese, philadelphia light, soft cheese, low fat soft cheese]
+
+  # ---------------------------------------------------------------- bakery
+  - code: bread_white
+    name: White bread
+    cofid_code: 11-1145  # "Bread, white, average"
+    pack_g: 800
+    pack_label: 800 g loaf
+    unit: {name: slice, g: 40}  # served whole
+    aisle: bakery
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [white bread, bread, white sliced bread, toast, white toast, slice of bread]
+  - code: bread_wholemeal
+    name: Wholemeal bread
+    cofid_code: 11-981  # "Bread, wholemeal, average"
+    pack_g: 800
+    pack_label: 800 g loaf
+    unit: {name: slice, g: 40}  # served whole
+    aisle: bakery
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [wholemeal bread, brown bread, wholemeal toast, seeded bread, wholemeal slice]
+  - code: wraps
+    name: Tortilla wraps
+    cofid_code: 11-925  # "Tortilla, wheat, soft"
+    pack_g: 512  # 8 x 64 g
+    pack_label: 8 wraps
+    unit: {name: wrap, g: 64}  # served whole
+    aisle: bakery
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [wrap, wraps, tortilla, tortillas, tortilla wrap, flour tortilla, wholemeal wrap]
+  - code: bagels
+    name: Bagels, plain
+    cofid_code: 11-970
+    pack_g: 425  # 5 x 85 g
+    pack_label: 5 bagels
+    unit: {name: bagel, g: 85}  # served whole
+    aisle: bakery
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [bagel, bagels, plain bagel, new york bagel]
+
+  # ---------------------------------------------------------------- grains and dried goods
+  - code: oats
+    name: Porridge oats
+    cofid_code: 11-788
+    pack_g: 1000
+    pack_label: 1 kg bag
+    aisle: grains
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [oats, porridge oats, rolled oats, porridge, jumbo oats, oatmeal, quaker oats]
+  - code: rice_basmati
+    name: Basmati rice, dry
+    cofid_code: 11-857  # "Rice, white, basmati, raw"
+    pack_g: 1000
+    pack_label: 1 kg bag
+    aisle: grains
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [rice, basmati rice, white rice, basmati, dry rice, uncooked rice, jasmine rice]
+  - code: rice_brown
+    name: Brown rice, dry
+    cofid_code: 11-868  # "Rice, brown, wholegrain, raw"
+    pack_g: 1000
+    pack_label: 1 kg bag
+    aisle: grains
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [brown rice, wholegrain rice, brown basmati, brown basmati rice]
+  - code: pasta_white
+    name: Pasta, white, dry
+    cofid_code: 11-716  # "Pasta, white, dried, raw"
+    fibre_100: 3.0  # CoFID N; typical UK dried durum wheat pasta label 3.0 g
+    pack_g: 500
+    pack_label: 500 g bag
+    aisle: grains
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [pasta, penne, fusilli, spaghetti, dry pasta, white pasta, pasta shapes, dried pasta]
+  - code: buckwheat
+    name: Buckwheat groats, dry
+    cofid_code: 11-006  # "Buckwheat, groats"
+    fibre_100: 10.3  # CoFID blank; USDA SR Legacy 20010 "Buckwheat groats, roasted, dry" 10.3 g
+    pack_g: 500
+    pack_label: 500 g bag
+    aisle: grains
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [buckwheat, buckwheat groats, kasha, toasted buckwheat]
+  - code: rice_paper
+    name: Rice paper wrappers, dry
+    cofid_code: null  # not in CoFID 2021
+    macros_100: {kcal: 336, protein_g: 1.6, fat_g: 0.2, carb_g: 82.5, fibre_g: 0.8}  # a typical rice paper wrapper label (Blue Dragon); check against the pack bought
+    pack_g: 134
+    pack_label: 134 g pack
+    unit: {name: sheet, g: 8}  # one 22 cm sheet
+    aisle: grains
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [rice paper, rice paper wrappers, rice paper sheets, spring roll wrappers]
+  - code: spaghetti_wholewheat
+    name: Wholewheat spaghetti, dry
+    cofid_code: 11-718
+    pack_g: 500
+    pack_label: 500 g bag
+    aisle: grains
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [wholewheat pasta, wholemeal pasta, wholewheat spaghetti, brown pasta, wholemeal spaghetti]
+  - code: couscous
+    name: Couscous, dry
+    cofid_code: 11-901
+    pack_g: 500
+    pack_label: 500 g box
+    aisle: grains
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [couscous, cous cous, dry couscous]
+  - code: quinoa
+    name: Quinoa, dry
+    cofid_code: 14-843
+    pack_g: 300
+    pack_label: 300 g bag
+    aisle: grains
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [quinoa, dry quinoa, uncooked quinoa]
+  - code: lentils_red
+    name: Red lentils, dry
+    cofid_code: 13-657  # "Lentils, red, split, dried, raw"
+    pack_g: 500
+    pack_label: 500 g bag
+    aisle: grains
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [red lentils, lentils, split red lentils, dried lentils, dry red lentils]
+
+  # ---------------------------------------------------------------- tins
+  - code: chickpeas
+    name: Chickpeas, tinned, drained
+    cofid_code: 13-670
+    pack_g: 240
+    pack_label: "400 g tin"
+    aisle: tins
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [chickpeas, chick peas, tinned chickpeas, canned chickpeas, garbanzo beans]
+  - code: kidney_beans
+    name: Kidney beans, tinned, drained
+    cofid_code: 13-660
+    pack_g: 240
+    pack_label: "400 g tin"
+    aisle: tins
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [kidney beans, red kidney beans, tinned kidney beans, canned kidney beans]
+  - code: baked_beans
+    name: Baked beans in tomato sauce
+    cofid_code: 13-532
+    pack_g: 415
+    pack_label: 415 g tin
+    aisle: tins
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [baked beans, heinz beans, beans in tomato sauce, heinz baked beans]
+  - code: chopped_tomatoes
+    name: Chopped tomatoes, tinned
+    cofid_code: 13-530
+    pack_g: 400
+    pack_label: 400 g tin
+    aisle: tins
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [chopped tomatoes, tinned tomatoes, canned tomatoes, tin of tomatoes, passata]
+  - code: tomato_puree
+    name: Tomato puree
+    cofid_code: 13-531
+    pack_g: 200
+    pack_label: 200 g tube
+    aisle: tins
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [tomato puree, tomato paste, double concentrate tomato puree]
+  - code: tuna
+    name: Tuna in brine, drained
+    cofid_code: 16-416
+    pack_g: 102
+    pack_label: "145 g tin"
+    aisle: tins
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [tuna, tinned tuna, tuna in brine, tuna in water, canned tuna, tuna chunks]
+  - code: sardines
+    name: Sardines in olive oil, drained
+    cofid_code: 16-440  # "Sardines, canned in olive oil, drained"
+    pack_g: 90
+    pack_label: "120 g tin"
+    aisle: tins
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [sardines, sardine, tinned sardines, canned sardines, sardines in olive oil]
+  - code: smoked_salmon
+    name: Smoked salmon, cold-smoked
+    cofid_code: 16-412  # "Salmon, smoked (cold-smoked)"
+    pack_g: 100
+    pack_label: 100 g pack
+    aisle: fish
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [smoked salmon, scottish smoked salmon, cold smoked salmon, lox]
+  - code: coconut_milk
+    name: Coconut milk, tinned
+    cofid_code: 14-889
+    pack_g: 400
+    pack_label: 400 ml tin
+    aisle: tins
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [coconut milk, tinned coconut milk, canned coconut milk]
+  - code: sweetcorn
+    name: Sweetcorn, tinned, drained
+    cofid_code: 13-529
+    pack_g: 285
+    pack_label: "325 g tin"
+    aisle: tins
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [sweetcorn, tinned sweetcorn, corn, canned corn, sweet corn]
+
+  # ---------------------------------------------------------------- frozen
+  - code: peas_frozen
+    name: Peas, frozen
+    cofid_code: 13-527
+    pack_g: 1000
+    pack_label: 1 kg bag
+    aisle: frozen
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [peas, frozen peas, garden peas, petit pois]
+  - code: mixed_veg_frozen
+    name: Mixed vegetables, frozen
+    cofid_code: 13-543  # "Vegetables, mixed, frozen, boiled in unsalted water"
+    fibre_100: 3.5  # CoFID N; typical UK frozen mixed vegetables label (carrot, pea, sweetcorn, bean) — verify against the bag
+    pack_g: 1000
+    pack_label: 1 kg bag
+    aisle: frozen
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [mixed veg, mixed vegetables, frozen mixed vegetables, frozen veg, frozen mixed veg]
+  - code: edamame_frozen
+    name: Edamame beans, frozen
+    cofid_code: 13-667
+    pack_g: 500
+    pack_label: 500 g bag
+    aisle: frozen
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [edamame, edamame beans, soya beans, soybeans, frozen edamame]
+  - code: raspberries_frozen
+    name: Raspberries, frozen
+    cofid_code: 14-375  # "Raspberries, raw" — freezing does not change the proximates
+    pack_g: 350
+    pack_label: 350 g bag
+    aisle: frozen
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [raspberries, frozen raspberries, frozen berries, mixed berries, frozen mixed berries]
+
+  # ---------------------------------------------------------------- condiments, oils, nuts
+  - code: olive_oil
+    name: Olive oil
+    cofid_code: 17-038
+    pack_g: 460  # 500 ml x 0.92
+    pack_label: 500 ml bottle
+    aisle: condiments
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [olive oil, extra virgin olive oil, evoo, oil, tbsp olive oil]
+  - code: rapeseed_oil
+    name: Rapeseed oil
+    cofid_code: 17-041
+    pack_g: 920  # 1 litre x 0.92
+    pack_label: 1 litre bottle
+    aisle: condiments
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [rapeseed oil, vegetable oil, cooking oil, sunflower oil]
+  - code: honey
+    name: Honey
+    cofid_code: 17-050
+    pack_g: 340
+    pack_label: 340 g jar
+    aisle: condiments
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [honey, runny honey, clear honey, tsp honey]
+  - code: soy_sauce
+    name: Soy sauce
+    cofid_code: 17-721
+    pack_g: 150
+    pack_label: 150 ml bottle
+    aisle: condiments
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [soy sauce, soya sauce, light soy sauce, dark soy sauce, tamari, kikkoman]
+  - code: ketchup
+    name: Tomato ketchup
+    cofid_code: 17-709
+    pack_g: 460
+    pack_label: 460 g bottle
+    aisle: condiments
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [ketchup, tomato ketchup, heinz ketchup, tomato sauce]
+  - code: mayo_light
+    name: Mayonnaise, reduced fat
+    cofid_code: 17-679
+    pack_g: 400
+    pack_label: 400 g jar
+    aisle: condiments
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [mayonnaise, light mayonnaise, mayo, light mayo, hellmanns light, lighter mayo]
+  - code: peanut_butter
+    name: Peanut butter, smooth
+    cofid_code: 14-892
+    pack_g: 340
+    pack_label: 340 g jar
+    aisle: condiments
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [peanut butter, crunchy peanut butter, smooth peanut butter, pb, pip and nut]
+  - code: houmous
+    name: Houmous
+    cofid_code: 13-556
+    pack_g: 200
+    pack_label: 200 g tub
+    aisle: condiments
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [houmous, hummus, humous, reduced fat houmous]
+  - code: pesto_red
+    name: Pesto, red
+    cofid_code: 17-623
+    pack_g: 190
+    pack_label: 190 g jar
+    aisle: condiments
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [pesto, red pesto, sun dried tomato pesto]
+  - code: curry_paste
+    name: Curry paste
+    cofid_code: 17-720
+    pack_g: 200
+    pack_label: 200 g jar
+    aisle: condiments
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [curry paste, thai curry paste, tikka paste, madras paste, thai green curry paste]
+  - code: chicken_stock
+    name: Chicken stock, ready made
+    cofid_code: 17-681  # stock cubes carry no kcal in CoFID; the ready-made stock does
+    pack_g: 500
+    pack_label: 500 ml pouch
+    aisle: condiments
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [chicken stock, stock, vegetable stock, stock cube, chicken stock cube, beef stock]
+  - code: salt
+    name: Salt
+    cofid_code: 17-367
+    pack_g: 750
+    pack_label: 750 g tub
+    aisle: condiments
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [salt, sea salt, table salt, pinch of salt]
+  - code: black_pepper
+    name: Black pepper, ground
+    cofid_code: 13-880  # CoFID carries fibre 25.3 but no kcal/carbohydrate for spices
+    macros_100: {kcal: 251, protein_g: 10.4, fat_g: 3.3, carb_g: 64.0, fibre_g: 25.3}  # USDA SR Legacy 02030 "Spices, pepper, black"
+    pack_g: 100
+    pack_label: 100 g jar
+    aisle: condiments
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [black pepper, pepper, ground black pepper, cracked black pepper]
+  - code: almonds
+    name: Almonds, whole
+    cofid_code: 14-896
+    pack_g: 200
+    pack_label: 200 g bag
+    aisle: condiments
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [almonds, almond, whole almonds, flaked almonds, nuts, mixed nuts, handful of almonds]
+  - code: chia_seeds
+    name: Chia seeds
+    cofid_code: null  # not in CoFID 2021
+    # Pack label values per 100 g; carbohydrate excludes fibre.
+    macros_100: {kcal: 414, protein_g: 21.8, fat_g: 25.0, carb_g: 8.6, fibre_g: 33.7}
+    pack_g: 150
+    pack_label: 150 g pack
+    aisle: condiments
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [chia, chia seed, chia seeds]
+  # Dried herbs and sauces require sourced nutrition values; do not guess missing CoFID energy.
+  - code: thyme_dried
+    name: Thyme, dried
+    cofid_code: 13-883  # "Thyme, dried, ground"
+    pack_g: 15
+    pack_label: 15 g jar
+    aisle: condiments
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [thyme, dried thyme]
+  - code: rosemary_dried
+    name: Rosemary, dried
+    cofid_code: 13-882
+    pack_g: 20
+    pack_label: 20 g jar
+    aisle: condiments
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [rosemary, dried rosemary]
+  - code: chilli_sauce
+    name: Chilli sauce
+    cofid_code: 17-719
+    pack_g: 150
+    pack_label: 150 g bottle
+    aisle: condiments
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [chilli sauce, hot chilli sauce, hot sauce]
+  - code: worcestershire_sauce
+    name: Worcestershire sauce
+    cofid_code: 17-723
+    pack_g: 165  # 150 ml
+    pack_label: 150 ml bottle
+    aisle: condiments
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [worcestershire, worcestershire sauce, worcester sauce]
+
+  # ---------------------------------------------------------------- weekend foods
+  # Weekend recipes include shared meals and richer dishes. Where CoFID's
+  # AOAC fibre is N or blank, `fibre_100` is CoFID's own NSP figure for the same code (lower
+  # than AOAC, so a fibre floor is never met on paper and missed on the plate).
+  - code: burger_buns
+    name: Burger buns, white, soft
+    cofid_code: 11-1006  # "Bread rolls, white, soft"
+    pack_g: 360
+    pack_label: 6 buns
+    unit: {name: bun, g: 82}  # served whole
+    aisle: bakery
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [burger bun, burger buns, brioche bun, bun, buns, bread roll, bread rolls, soft rolls]
+  - code: english_muffins
+    name: English muffins, white
+    cofid_code: 11-541
+    pack_g: 420
+    pack_label: 6 muffins
+    unit: {name: muffin, g: 70}  # served whole
+    aisle: bakery
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [english muffin, english muffins, muffin, breakfast muffin]
+  - code: pizza_base
+    name: Pizza base, raw
+    cofid_code: 11-1016
+    pack_g: 300
+    pack_label: 2 bases
+    unit: {name: base, g: 150}  # served whole
+    aisle: bakery
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [pizza base, pizza bases, pizza dough]
+  - code: flour_plain
+    name: Plain flour
+    cofid_code: 11-886  # "Flour, wheat, white, plain, soft"
+    pack_g: 1500
+    pack_label: 1.5 kg bag
+    aisle: grains
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [plain flour, flour, white flour, all purpose flour]
+  - code: cornflakes
+    name: Cornflakes
+    cofid_code: 11-742  # "Breakfast cereal, cornflakes, fortified"; crushed, the crunch on oven-"fried" chicken
+    pack_g: 500
+    pack_label: 500 g box
+    aisle: grains
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [cornflakes, corn flakes, crushed cornflakes]
+  - code: cheddar_half_fat
+    name: Cheddar, half fat
+    cofid_code: 12-348  # "Cheese, Cheddar type, half fat"
+    pack_g: 350
+    pack_label: 350 g block
+    aisle: dairy
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [half fat cheddar, lighter cheddar, reduced fat cheddar, light cheddar]
+  - code: cheese_slices_light
+    name: Cheese slices, reduced fat
+    cofid_code: 12-549  # "Cheese, processed, slices, reduced fat" - the smash-burger slice
+    pack_g: 200
+    pack_label: 10 slices
+    unit: {name: slice, g: 20}  # served whole
+    aisle: dairy
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [cheese slice, cheese slices, burger cheese, light cheese slices, american cheese]
+  - code: creme_fraiche_half
+    name: Creme fraiche, half fat
+    cofid_code: 12-336
+    pack_g: 300
+    pack_label: 300 g tub
+    aisle: dairy
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [half fat creme fraiche, creme fraiche, light creme fraiche, crème fraîche]
+  - code: egg_whites
+    name: Egg whites, raw
+    cofid_code: 12-938  # "Eggs, chicken, white, raw"; the carton, for pancakes and French toast
+    pack_g: 500
+    pack_label: 500 g carton
+    aisle: dairy
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [egg whites, egg white, liquid egg white, liquid egg whites]
+  - code: rump_steak
+    name: Rump steak, lean, raw
+    cofid_code: 18-043  # "Beef, rump steak, raw, lean"
+    fibre_100: 0.0  # CoFID AOAC blank; CoFID NSP for 18-043 is 0.0
+    pack_g: 400
+    pack_label: 2 steaks
+    aisle: meat
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [rump steak, steak, lean steak, beef steak, sirloin steak]
+  # "sirloin steak" stays rump_steak's alias (aliases are a ledger); this one is named apart
+  - code: sirloin_steak
+    name: Sirloin steak, raw
+    cofid_code: 18-065  # "Beef, sirloin steak, raw, lean and fat": steaks are sold with the fat
+    fibre_100: 0.0  # CoFID blank; meat carries none
+    pack_g: 340
+    pack_label: 2 steaks
+    aisle: meat
+    pantry: false
+    use_whole_pack: false
+    person_scope: both
+    aliases: [sirloin, sirloin steaks, beef sirloin, sirloin beef steak]
+  - code: cocoa_powder
+    name: Cocoa powder
+    cofid_code: 12-545
+    fibre_100: 12.1  # CoFID AOAC "N"; CoFID NSP for 12-545 is 12.1
+    pack_g: 250
+    pack_label: 250 g tub
+    aisle: condiments
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [cocoa, cocoa powder, cacao powder, unsweetened cocoa]
+  - code: dark_chocolate
+    name: Dark chocolate
+    cofid_code: 17-491  # "Chocolate, plain"
+    fibre_100: 2.5  # CoFID AOAC "N"; CoFID NSP for 17-491 is 2.5
+    pack_g: 100
+    pack_label: 100 g bar
+    aisle: condiments
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [dark chocolate, plain chocolate, chocolate chips, dark choc]
+  - code: golden_syrup
+    name: Golden syrup
+    cofid_code: 17-065  # "Syrup, golden"; the pancake drizzle, weighed
+    pack_g: 454
+    pack_label: 454 g tin
+    aisle: condiments
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [golden syrup, syrup, maple syrup, pancake syrup]
+  - code: garlic_powder
+    name: Garlic powder
+    cofid_code: 13-830
+    fibre_100: 9.9  # CoFID AOAC blank; CoFID NSP for 13-830 is 9.9
+    pack_g: 50
+    pack_label: 50 g jar
+    aisle: condiments
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [garlic powder, garlic granules, dried garlic]
+  - code: mustard
+    name: Mustard, smooth
+    cofid_code: 17-364  # "Mustard, smooth" (English / Dijon type)
+    fibre_100: 4.0  # CoFID AOAC and NSP both "N"; USDA FDC 172234 "Mustard, prepared, yellow" 4.00 g
+    pack_g: 185
+    pack_label: 185 g jar
+    aisle: condiments
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [mustard, dijon mustard, english mustard, american mustard, yellow mustard]
+  - code: paprika
+    name: Paprika
+    cofid_code: null  # CoFID 13-879 has no kcal or carbohydrate
+    # USDA FDC 171329 "Spices, paprika"; its protein 14.1, fat 12.9 and fibre 34.9 match CoFID 13-879
+    macros_100: {kcal: 282, protein_g: 14.1, fat_g: 12.9, carb_g: 54.0, fibre_g: 34.9}
+    pack_g: 50
+    pack_label: 50 g jar
+    aisle: condiments
+    pantry: true
+    use_whole_pack: false
+    person_scope: both
+    aliases: [paprika, smoked paprika, sweet paprika]

@@ -1,0 +1,32 @@
+/* Menu, Cook and Recipes: the compact plan. */
+#menu .day { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+#menu .day-total { text-align: right; font-weight: 400; white-space: nowrap; }
+#menu .slot-kind { display: block; font-size: .76rem; text-transform: uppercase; letter-spacing: .03em; }
+#menu .slot > summary h3, #dishes .slot > summary h3 { font-size: 1rem; }
+#menu .meal-actions { align-items: center; flex-wrap: wrap; }
+#menu .meal-actions > * { flex: 0 0 auto; }
+#menu .slot > p, #batch .slot > p, #dishes .slot > p { border: 0; }
+#menu details.weekend { margin: 8px 0 14px; padding: 4px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
+#menu details.weekend > summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-weight: 600; }
+#menu .per100 button, #batch .per100 button, #dishes .per100 button { min-height: 44px; border: 0; background: transparent; color: var(--accent); text-decoration: underline; font: inherit; cursor: pointer; }
+#menu .per100 div, #batch .per100 div, #dishes .per100 div { padding-left: 10px; }
+#menu .ingredient-line > .per100-figure { margin: 0 0 6px; padding-left: 10px; font-size: .8rem; }
+#menu button, #batch button, #dishes button, #menu summary, #batch summary, #dishes summary { min-height: 44px; }
+#menu .stars button, #dishes .stars button { min-width: 44px; }
+#menu button.on, #batch button.on, #dishes button.on,
+#menu .stars button.on, #dishes .stars button.on,
+#menu .row button.on, #batch .row button.on, #dishes .row button.on {
+  background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 700;
+}
+#dishes #find-dish { display: block; width: 100%; min-height: 44px; margin: 4px 0 10px; }
+#dishes .sort-chips { margin-bottom: 8px; }
+#dishes .recipe-card { margin: 8px 0; }
+#dishes .recipe-card > summary { padding: 8px 0; }
+#dishes .recipe-note > summary { min-height: 44px; cursor: pointer; }
+#dishes .recipe-note input { width: 100%; min-height: 44px; }
+#dishes .rate-recent { margin: 12px 0 18px; }
+#dishes .rate-recent-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+/* the dish on its own line, its five scores under it: beside them a name had 100 px to wrap in */
+#dishes .rate-recent-row > span { flex: 1 1 100%; font-weight: 600; }
+#dishes .rate-recent-row .stars { flex-wrap: nowrap; }
+#batch .amount { gap: 10px; }

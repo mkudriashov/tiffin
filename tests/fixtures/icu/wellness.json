@@ -1,0 +1,35 @@
+[
+  {
+    "id": "2026-09-05",
+    "weight": 80.0,
+    "steps": 5000,
+    "sleepSecs": 25200,
+    "hrv": 50.0,
+    "restingHR": 55,
+    "ctl": 5.0,
+    "atl": 2.0,
+    "updated": "2026-09-05T06:00:00.000+00:00"
+  },
+  {
+    "id": "2026-09-06",
+    "weight": null,
+    "steps": 6000,
+    "sleepSecs": 27000,
+    "hrv": 52.0,
+    "restingHR": 54,
+    "ctl": 5.2,
+    "atl": 2.1,
+    "updated": "2026-09-06T06:00:00.000+00:00"
+  },
+  {
+    "id": "2026-09-07",
+    "weight": null,
+    "steps": 4500,
+    "sleepSecs": null,
+    "hrv": null,
+    "restingHR": null,
+    "ctl": 5.1,
+    "atl": 1.9,
+    "updated": "2026-09-07T06:00:00.000+00:00"
+  }
+]

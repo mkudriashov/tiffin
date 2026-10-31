@@ -1,0 +1,54 @@
+[
+  {
+    "id": "example-climb",
+    "type": "RockClimbing",
+    "name": "Example climb",
+    "start_date": "2026-09-05T09:00:00Z",
+    "start_date_local": "2026-09-05T10:00:00",
+    "moving_time": 1800,
+    "elapsed_time": 1900,
+    "calories": 200,
+    "average_heartrate": 120,
+    "max_heartrate": 150,
+    "icu_training_load": 20.0,
+    "icu_hr_zone_times": [
+      600,
+      800,
+      400,
+      0,
+      0,
+      0,
+      0
+    ],
+    "stream_types": [
+      "time",
+      "heartrate"
+    ]
+  },
+  {
+    "id": "example-ride",
+    "type": "Ride",
+    "name": "Example ride",
+    "start_date": "2026-09-06T08:00:00Z",
+    "start_date_local": "2026-09-06T09:00:00",
+    "moving_time": 3600,
+    "elapsed_time": 3700,
+    "calories": 300,
+    "average_heartrate": 130,
+    "max_heartrate": 160,
+    "icu_training_load": 30.0,
+    "icu_hr_zone_times": [
+      500,
+      1800,
+      1000,
+      300,
+      0,
+      0,
+      0
+    ],
+    "stream_types": [
+      "time",
+      "heartrate"
+    ]
+  }
+]

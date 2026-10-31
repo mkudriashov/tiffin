@@ -1,0 +1,1 @@
+-- Initial installation is defined by schema.sql; later changes start at 0002.

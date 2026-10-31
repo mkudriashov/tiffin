@@ -1,0 +1,9 @@
+# Privacy
+
+The SQLite database, configuration, logs, backups, exports and secrets stay under `TIFFIN_HOME` on your machine or server. Secrets are files under `secrets/` or supported environment variables, never values in the database or `tiffin.toml`. Logs use integer person IDs and omit names and message bodies. Protect the home directory and its backups; anyone who can read them can read the household's private data.
+
+Telegram carries messages you send to and receive from your bot, including any meal or measurement text you choose to enter. The chosen AI provider receives relevant personal data only after that person has granted consent for that provider. A provider or compatible endpoint change requires consent again. With no consent or model, model-assisted work becomes manual. A local compatible model keeps those requests on your chosen local endpoint, subject to your own network setup.
+
+If connected, intervals.icu supplies activity and wellness data, including Garmin-linked records. Tiffin requests those records using the person's intervals.icu key. Shopping from the catalogue and manually entered products make no retailer requests. Manual products are scoped to the person who entered them; a shared shopping list may use either participant's pack. The optional Claude-in-Chrome retailer reader contacts selected retailer sites only when enabled, using a logged-in Chrome profile on that machine. Its gate permits reading and navigation to configured domains and denies clicks, typing and JavaScript. The web page has no external script or font dependency. A reverse proxy or Tailscale connection is under your control and may have its own access logs.
+
+The demo is entirely made-up. It uses no Telegram token, model key or network provider, binds to loopback and removes its temporary database when it exits. See [web access](web-access.md) for normal sign-in and [configuration](configuration.md) for secret locations.

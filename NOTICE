@@ -1,0 +1,19 @@
+Tiffin
+Copyright 2026 the Tiffin authors
+
+CoFID 2021 — licence and attribution
+
+The file data/cofid/cofid_2021_proximates.csv is derived from McCance and
+Widdowson's The Composition of Foods Integrated Dataset 2021 (CoFID 2021),
+published by Public Health England. It is Crown copyright and licensed under
+the Open Government Licence v3.0:
+https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/
+
+Contains public sector information licensed under the Open Government Licence v3.0.
+Source: McCance and Widdowson's The Composition of Foods Integrated Dataset 2021,
+Public Health England.
+
+The included CSV contains the 2021 proximates fields, transformed to per-100 g
+ingredient values by tools/cofid_to_csv.py. See data/cofid/LICENCE-OGL3.txt for
+provenance and transformation detail. The Tiffin source code has a separate
+Apache-2.0 licence in LICENSE.

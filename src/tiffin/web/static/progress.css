@@ -1,0 +1,31 @@
+/* Progress: the weekly overview, its day grid and its charts. Every
+   selector is under #progress, so the rest of the page is untouched. */
+#progress .progress-chips, #progress .progress-week-nav { display: flex; align-items: center; gap: 0.4rem; }
+#progress .progress-chips { flex-wrap: wrap; margin-bottom: 1rem; }
+#progress .progress-chips button, #progress .progress-week-nav button {
+  min-height: 44px; min-width: 44px; border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--card); color: var(--ink); padding: 0.4rem 0.7rem;
+}
+/* the window in force is filled, like every other choice on the page */
+#progress .progress-chips button.on { border-color: var(--accent); background: var(--accent); color: var(--bg); font-weight: 600; }
+#progress .progress-week-nav h2 { margin-right: auto; }
+#progress .progress-week-nav button:disabled { opacity: 0.45; }
+#progress .progress-cards { grid-template-columns: 1fr; }
+@media (min-width: 560px) { #progress .progress-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+#progress .progress-recorded { color: var(--muted); margin: 1rem 0; }
+#progress .progress-days { width: 100%; border-collapse: collapse; font-size: 0.74rem; table-layout: fixed; }
+#progress .progress-days th, #progress .progress-days td { padding: 0.45rem 0.12rem; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+#progress .progress-days th:first-child, #progress .progress-days td:first-child { text-align: left; width: 10%; }
+#progress .progress-days th:nth-child(2) { width: 17%; }
+#progress .progress-days th:nth-child(3) { width: 19%; }
+#progress .progress-days th:nth-child(4) { width: 18%; }
+#progress .progress-days th:nth-child(5) { width: 24%; }
+#progress .progress-days th:nth-child(6) { width: 12%; }
+#progress .progress-days td { font-variant-numeric: tabular-nums; }
+#progress .progress-future { color: var(--muted); }
+#progress .progress-chart { margin-top: 1.4rem; padding: var(--pad); border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
+#progress .progress-chart h3 { margin: 0; }
+#progress .progress-chart p { margin: 0.2rem 0 0; }
+#progress .progress-plot { width: 100%; min-height: 220px; }
+#progress .progress-no-plot { min-height: 0; }
+#progress .progress-sync p { margin: 2px 0; }

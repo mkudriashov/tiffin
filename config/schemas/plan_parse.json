@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "plan_parse",
+  "description": "A typed training week: exactly seven entries, weekday 0 (Monday) to 6 (Sunday), rest days explicit.",
+  "type": "object",
+  "properties": {
+    "sessions": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "properties": {
+          "weekday": {"type": "integer", "minimum": 0, "maximum": 6},
+          "kind": {
+            "type": "string",
+            "enum": ["climb", "ropes", "ride", "run", "strength", "mobility", "swim", "class", "walk", "other", "rest"]
+          },
+          "target_minutes": {"type": "integer", "minimum": 0, "maximum": 600},
+          "start_time": {"type": ["string", "null"], "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"}
+        },
+        "required": ["weekday", "kind", "target_minutes", "start_time"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["sessions"],
+  "additionalProperties": false
+}

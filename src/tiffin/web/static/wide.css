@@ -1,0 +1,111 @@
+/* Wider layout keeps the phone layout behind this breakpoint. */
+@media (min-width: 900px) {
+  :root { --rail: 96px; }
+
+  body {
+    max-width: none;
+    margin: 0;
+    padding: 0 32px 40px calc(var(--rail) + 32px);
+  }
+  header, main { max-width: 1120px; margin-inline: auto; }
+
+  /* the rail: every destination in sight, top to bottom, none of the height a bar would take */
+  nav#tabs {
+    top: 0;
+    right: auto;
+    bottom: 0;
+    left: 0;
+    width: var(--rail);
+    max-width: none;
+    margin: 0;
+    grid-template-columns: 1fr;
+    grid-auto-rows: min-content;
+    align-content: start;
+    gap: 6px;
+    padding: calc(14px + env(safe-area-inset-top, 0px)) 8px 14px
+      max(8px, env(safe-area-inset-left, 0px));
+    border-top: 0;
+    border-right: 1px solid var(--line);
+  }
+  nav#tabs button { min-height: 68px; }
+
+  /* a control, not a banner across the whole width */
+  .views, #today-date { max-width: 640px; }
+
+  /* Today: the day's numbers across the top, then the food beside the rest of the day */
+  .today-cols {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    gap: 0 32px;
+    align-items: start;
+  }
+
+  /* Menu: a cook's days side by side; opening a meal grows only its own day */
+  .menu-days {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px 32px;
+    align-items: start;
+  }
+
+  /* Cook: the pots side by side, each with its own weights */
+  .cook-dishes {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 32px;
+    align-items: start;
+  }
+
+  /* Recipes: two columns of the book, with what to rate across the top of both */
+  #dishes .recipe-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 32px;
+    align-items: start;
+  }
+  #dishes .recipe-list > .rate-recent { grid-column: 1 / -1; }
+
+  /* Shopping: two columns of aisles, an aisle never split between them */
+  .shop-aisles { columns: 2; column-gap: 40px; }
+  .shop-aisles > .aisle { break-inside: avoid; }
+  .shop-aisles > .aisle > h2:first-child { margin-top: 6px; }
+
+  /* Progress: the week's four numbers in one row */
+  #progress .progress-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+  /* More: its panels in two columns, flowing - a short panel beside a tall one left a hole */
+  #more-body { columns: 2; column-gap: 24px; }
+  #more-body > section { break-inside: avoid; }
+
+  /* Cook it: an iPad propped up in the kitchen. The step large enough to read from the hob, the
+     amounts open beside it rather than folded below, and Back and Next still a palm's width wide
+     but no longer a third of the height each */
+  #cook-overlay {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 34%);
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "bar bar"
+      "title ings"
+      "step ings"
+      "zones zones";
+    column-gap: 40px;
+    padding-inline: max(32px, env(safe-area-inset-left, 0px)) max(32px, env(safe-area-inset-right, 0px));
+  }
+  #cook-overlay > .row { grid-area: bar; }
+  #cook-title { grid-area: title; font-size: 1.3rem; }
+  #cook-step { grid-area: step; font-size: 1.9rem; line-height: 1.45; }
+  #cook-ings { grid-area: ings; margin-top: 8px; overflow-y: auto; font-size: 1.15rem; }
+  #cook-ings ul { padding-left: 20px; }
+  #cook-ings li { margin: 6px 0; }
+  #cook-zones { grid-area: zones; min-height: 16vh; }
+
+  /* Choose: a meal's dishes in a row, to weigh them up side by side */
+  #choose .choose-meal {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 0 16px;
+    align-items: start;
+  }
+  #choose .choose-meal > :not(.choose-option) { grid-column: 1 / -1; }
+}
