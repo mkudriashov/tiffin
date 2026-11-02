@@ -47,6 +47,10 @@ _STRIP_ENV_PREFIXES = (
     "CLAUDE_JOB_DIR",
 )
 
+# The one CLAUDE_CODE_ variable that must reach the child: the long-lived subscription token a
+# server or container sets (from `claude setup-token`) because it has no interactive login.
+_KEEP_ENV = frozenset({"CLAUDE_CODE_OAUTH_TOKEN"})
+
 Runner = Callable[..., "subprocess.CompletedProcess[str]"]
 
 
@@ -64,7 +68,11 @@ def resolve_exe(name: str = "claude") -> str:
 
 def child_env(base: Mapping[str, str] | None = None) -> dict[str, str]:
     src = os.environ if base is None else base
-    return {k: v for k, v in src.items() if not k.upper().startswith(_STRIP_ENV_PREFIXES)}
+    return {
+        k: v
+        for k, v in src.items()
+        if k.upper() in _KEEP_ENV or not k.upper().startswith(_STRIP_ENV_PREFIXES)
+    }
 
 
 def default_mcp_exe() -> str:

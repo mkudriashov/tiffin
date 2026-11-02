@@ -246,3 +246,36 @@ def test_resolve_exe_prefers_the_native_exe_behind_the_npm_shim(
     assert resolve_exe("claude") == str(native)
     monkeypatch.setattr("tiffin.model.claude_cli.shutil.which", lambda name: None)
     assert resolve_exe("claude") == "claude"
+
+
+def test_child_env_keeps_only_the_subscription_token() -> None:
+    env = {
+        "PATH": "p",
+        "CLAUDE_CODE_OAUTH_TOKEN": "token-value",
+        "CLAUDE_CODE_SESSION_ID": "s",
+        "CLAUDE_CODE_ENTRYPOINT": "cli",
+        "CLAUDE_CODE_OAUTH_TOKEN_FILE": "f",
+        "CLAUDE_CODE_OAUTH_TOKEN2": "x",
+        "CLAUDECODE": "1",
+        "CLAUDE_PID": "9",
+    }
+    assert child_env(env) == {"PATH": "p", "CLAUDE_CODE_OAUTH_TOKEN": "token-value"}
+
+
+def test_child_env_token_name_match_is_exact_but_not_case_sensitive() -> None:
+    assert "claude_code_oauth_token" in child_env({"claude_code_oauth_token": "t"})
+    assert child_env({"XCLAUDE_CODE_OAUTH_TOKEN": "t"}) == {"XCLAUDE_CODE_OAUTH_TOKEN": "t"}
+
+
+def test_the_token_reaches_the_child_process_environment(tmp_path: Path) -> None:
+    cli = FakeClaudeCli([claude_envelope(structured=LINES)])
+    backend = ClaudeBackend(
+        "claude",
+        "opus",
+        tmp_path / "cwd",
+        runner=cli,
+        state_dir=tmp_path / "state",
+        env={"CLAUDE_CODE_OAUTH_TOKEN": "t", "CLAUDE_CODE_SESSION_ID": "s", "HOME": "h"},
+    )
+    backend.complete_json("sunday_prose", "p", schemas.load("sunday_prose"), BUDGET)
+    assert cli.last["env"] == {"CLAUDE_CODE_OAUTH_TOKEN": "t", "HOME": "h"}
