@@ -301,3 +301,11 @@ def test_a_broken_config_is_an_unhealthy_container(
     (tmp_path / "tiffin.toml").write_text('[web]\nport_prod = "x"\n', encoding="utf-8")
     assert healthcheck.main({"TIFFIN_HOME": str(tmp_path)}) == 1
     assert "config" in capsys.readouterr().err
+
+
+def test_the_image_is_stamped_and_the_compose_example_stops_cleanly() -> None:
+    assert "ARG RELEASE_ID=unknown" in DOCKERFILE and "ARG RELEASE_COMMIT=unknown" in DOCKERFILE
+    assert "TIFFIN_RELEASE=${RELEASE_ID}" in DOCKERFILE
+    assert "TIFFIN_COMMIT=${RELEASE_COMMIT}" in DOCKERFILE
+    compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+    assert "init: true" in compose and "stop_grace_period: 30s" in compose

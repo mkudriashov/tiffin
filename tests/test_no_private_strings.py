@@ -63,6 +63,8 @@ def published_texts() -> Iterator[tuple[Path, str]]:
         )
         for filename in sorted(files):
             path = Path(directory) / filename
+            if filename == ".git":
+                continue  # a linked worktree's pointer file, never published
             if path.is_symlink():
                 continue
             relative = path.relative_to(ROOT)

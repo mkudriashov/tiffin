@@ -6,6 +6,15 @@ Every table outside `db.PROJECTION_TABLES` and `db.STATE_TABLES` is an append-on
 
 Tests use fixtures, fakes for Telegram, intervals.icu and model calls, and `FrozenClock` for time. Do not point tests at a real household database. Run:
 
+CI should test what is published, not a working copy: export the commit and run everything there (the private-string scan reads the tree, so a linked worktree's `.git` pointer file or a stray local file must not be in it).
+
+```text
+git archive --prefix=tiffin/ HEAD | tar -x -C "$RUNNER_TEMP"
+cd "$RUNNER_TEMP/tiffin" && uv sync --frozen && uv run pytest -q -p no:cacheprovider && uv run ruff check . && uv run ruff format --check . && uv run pyright
+```
+
+Locally:
+
 ```text
 uv sync
 .venv\Scripts\python.exe -m pytest -q -p no:cacheprovider

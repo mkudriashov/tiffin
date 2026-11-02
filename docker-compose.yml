@@ -18,6 +18,11 @@ services:
     # polling (an old install still running), Tiffin exits at once each time; "unless-stopped"
     # would restart it for ever and each start would begin its jobs again. Stop the old copy first.
     restart: on-failure:5
+    # An init forwards docker stop's SIGTERM and reaps the Claude CLI's children; Tiffin stops cleanly on
+    # SIGTERM (it ends its Telegram poll and gives work in flight 20 seconds), so the grace period
+    # must be longer than that.
+    init: true
+    stop_grace_period: 30s
     user: "10010:10010" # match the image's TIFFIN_UID build argument
     read_only: true
     tmpfs:
