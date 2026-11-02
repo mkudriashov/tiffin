@@ -96,6 +96,8 @@ KEPT: dict[str, str] = {
     "web_login_links": "short-lived sign-in links are identity records",
     "web_devices": "device sessions survive a new onboarding interview",
     "pairing_codes": "spent codes are a ledger of how the pairing happened",
+    "link_events": "who linked to whom and when; a reset of answers does not unlink anyone",
+    "link_attempts": "codes entered, kept so that guessing stays limited",
     "messages_in": "what was actually said, on both sides",
     "messages_out": "and what was sent back, including the send-once keys",
     # the same review rides in the Sunday message's payload, which is kept: deleting it here
@@ -144,6 +146,8 @@ SHARED: dict[str, str] = {
     "shop_misses": "what a shop does not stock: about the shop, not about a person",
     "inbound_outcomes": "belongs to messages_in, which is kept",
     "voice_transcripts": "belongs to messages_in, which is kept",
+    "links": "a code made for two people, not for one; the link ends by an unlink event",
+    "shopping_list_closures": "marks a joint weekend list closed when its link ended",
     "pairing_uses": "belongs to pairing_codes, which is kept",
     "web_link_uses": "belongs to web_login_links, which is kept",
     "web_device_events": "belongs to web_devices, which is kept",

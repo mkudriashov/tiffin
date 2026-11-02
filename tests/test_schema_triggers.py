@@ -48,6 +48,8 @@ def test_shopping_migration_adds_manual_products_to_existing_database() -> None:
             "CREATE TABLE ingredients (id INTEGER PRIMARY KEY, code TEXT);"
             "CREATE TABLE shopping_items (id INTEGER PRIMARY KEY, list_id INTEGER);"
             "CREATE TABLE persons (id INTEGER PRIMARY KEY);"
+            "CREATE TABLE shared_menus (id INTEGER PRIMARY KEY);"
+            "CREATE TABLE shopping_lists (id INTEGER PRIMARY KEY);"
         )
         assert dbmod.migrate(con) == dbmod.SCHEMA_VERSION
         assert "pack_sizes_g" in dbmod.columns(con, "ingredients")

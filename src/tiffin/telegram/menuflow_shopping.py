@@ -391,7 +391,7 @@ class MenuShoppingFlow:
             (
                 r
                 for r in h.db.all(
-                    "SELECT si.grams_needed, sl.person_id, sl.owner_ids FROM shopping_items si "
+                    "SELECT si.grams_needed, sl.id, sl.person_id, sl.owner_ids FROM shopping_items si "
                     "JOIN shopping_lists sl ON sl.id = si.list_id "
                     "JOIN ingredients i ON i.id = si.ingredient_id "
                     "WHERE i.code = ? AND si.packs > 0 "
@@ -399,7 +399,7 @@ class MenuShoppingFlow:
                     "ORDER BY si.id DESC LIMIT 5",
                     (code, person_id),
                 )
-                if shopping.readable(r, person_id)
+                if shopping.readable(h.db, r, person_id)
             ),
             None,
         )

@@ -45,8 +45,14 @@ def _menu_span(db: Db, menu_id: int | None) -> tuple[dt.date, dt.date] | None:
 
 
 def _is_shared(db: Db, menu_id: int) -> bool:
-    """Is this menu one half of a weekend cooked together (`food/shared.py`)?"""
-    return db.one("SELECT 1 FROM shared_menu_members WHERE menu_id = ?", (menu_id,)) is not None
+    """Is this menu one half of a weekend still cooked together (`food/shared.py`)? Once the
+    link ends the two menus are ordinary ones."""
+    from .. import links  # noqa: PLC0415
+
+    row = db.one(
+        "SELECT shared_menu_id FROM shared_menu_members WHERE menu_id = ?", (menu_id,)
+    )
+    return row is not None and links.pair_open(db, int(row["shared_menu_id"]))
 
 
 def _joint_stale(db: Db, joint: Any, start: dt.date, end: dt.date) -> bool:
@@ -112,7 +118,7 @@ def newest_readable(db: Db, person_id: int) -> Any:
         "WHERE person_id = ? OR person_id IS NULL ORDER BY id DESC LIMIT 20",
         (person_id,),
     ):
-        if readable(row, person_id):
+        if readable(db, row, person_id):
             return row
     return None
 
@@ -124,18 +130,18 @@ def list_row(db: Db, list_id: int, person_id: int) -> Any:
         "WHERE id = ?",
         (list_id,),
     )
-    return row if readable(row, person_id) else None
+    return row if readable(db, row, person_id) else None
 
 
 def item_readable(db: Db, item_id: int, person_id: int) -> bool:
     """Is this item on a list this person may read and tick? The page's tick and "shelf empty"
     asked only "own list or any joint one", so her phone could tick his owner-only weekend list."""
     row = db.one(
-        "SELECT sl.person_id, sl.owner_ids FROM shopping_items si "
+        "SELECT sl.id, sl.person_id, sl.owner_ids FROM shopping_items si "
         "JOIN shopping_lists sl ON sl.id = si.list_id WHERE si.id = ?",
         (item_id,),
     )
-    return readable(row, person_id)
+    return readable(db, row, person_id)
 
 
 def replaced_by(db: Db, row: Any, person_id: int) -> Any:
@@ -176,13 +182,21 @@ def list_owners(row: Any) -> set[int] | None:
     return _list_owners(row) if row is not None and row["person_id"] is None else None
 
 
-def readable(row: Any, person_id: int) -> bool:
+def is_closed(db: Db, list_id: int) -> bool:
+    """A joint list closed when its link ended (`close_joint`); nobody reads it any more."""
+    return db.one("SELECT 1 FROM shopping_list_closures WHERE list_id = ?", (list_id,)) is not None
+
+
+def readable(db: Db, row: Any, person_id: int) -> bool:
     """May this person read and tick this list? Their own, or a joint one they are an owner of -
-    a weekend list built from his menu alone was served to her as "Weekend, both of you"."""
+    a weekend list built from his menu alone was served to her as "Weekend, both of you". A joint
+    list whose link has ended is nobody's: each of them has their own copy."""
     if row is None:
         return False
     if row["person_id"] is not None:
         return int(row["person_id"]) == person_id
+    if is_closed(db, int(row["id"])):
+        return False
     owners = _list_owners(row)
     return owners is None or person_id in owners
 
@@ -248,10 +262,11 @@ def _joint_for(db: Db, start: dt.date, end: dt.date, person_id: int | None = Non
         "SELECT sl.id, sl.kind, sl.person_id, sl.menu_id, sl.created_at, sl.owner_ids "
         "FROM shopping_lists sl JOIN menus m ON m.id = sl.menu_id "
         "WHERE sl.kind = 'joint_weekend' AND m.segment_start >= ? AND m.segment_end <= ? "
+        "AND NOT EXISTS (SELECT 1 FROM shopping_list_closures c WHERE c.list_id = sl.id) "
         "ORDER BY sl.id DESC",
         (isoday(sat), isoday(sun)),
     ):
-        if person_id is None or readable(row, person_id):
+        if person_id is None or readable(db, row, person_id):
             return row
         return None  # the weekend's newest list is not theirs: an older one is not either
     return None
@@ -688,3 +703,77 @@ def weekend_days(segment_start: dt.date, segment_end: dt.date) -> list[dt.date]:
 #: is full of them ("Chicken, chickpea and feta salad"), so a reader cannot tell a dish boundary
 #: from a dish's own punctuation. Shared with `telegram.menuflow`'s own per-dish attribution.
 DISH_SEP = " / "
+
+
+def close_joint(
+    db: Db, link_id: int, persons: Sequence[int], today: dt.date
+) -> tuple[int, int]:
+    """Close every open joint weekend list, because the link they were built under has ended.
+
+    A closure row is written for each (the list itself is a ledger row and stays as it was). A
+    list for a weekend that has not finished is given to each of its owners as their own list of
+    the same lines, with what was already ticked still ticked. Returns (closed, copied).
+    """
+    closed = copied = 0
+    open_lists = db.all(
+        "SELECT sl.* FROM shopping_lists sl WHERE sl.kind = 'joint_weekend' "
+        "AND NOT EXISTS (SELECT 1 FROM shopping_list_closures c WHERE c.list_id = sl.id) "
+        "ORDER BY sl.id"
+    )
+    for row in open_lists:
+        db.insert("shopping_list_closures", list_id=int(row["id"]), link_id=link_id)
+        closed += 1
+        span = _menu_span(db, row["menu_id"])
+        if span is None or span[1] < today:
+            continue  # a weekend that is over has nothing left to buy
+        owners = _list_owners(row)
+        for pid in sorted(set(persons) if owners is None else owners & set(persons)):
+            _copy_joint_for(db, row, pid, span)
+            copied += 1
+    return closed, copied
+
+
+def _copy_joint_for(db: Db, joint: Any, person_id: int, span: tuple[dt.date, dt.date]) -> None:
+    """One person's own list of a closed joint list's lines: the same items, their menu for that
+    weekend, and the ticks the trolley already had."""
+    own = db.one(
+        "SELECT id FROM menus WHERE person_id = ? AND segment_start >= ? AND segment_end <= ? "
+        "ORDER BY id DESC LIMIT 1",
+        (person_id, isoday(span[0]), isoday(span[1])),
+    )
+    new_id = db.insert(
+        "shopping_lists",
+        menu_id=int(own["id"]) if own is not None else joint["menu_id"],
+        kind="segment",
+        person_id=person_id,
+        message_out_id=None,
+        owner_ids=None,
+        from_day=joint["from_day"],
+        to_day=joint["to_day"],
+        basis=joint["basis"],
+        link_id=None,
+    )
+    for item in db.all("SELECT * FROM shopping_items WHERE list_id = ? ORDER BY id", (joint["id"],)):
+        copied = db.insert(
+            "shopping_items",
+            list_id=new_id,
+            ingredient_id=item["ingredient_id"],
+            grams_needed=item["grams_needed"],
+            packs=item["packs"],
+            leftover_g=item["leftover_g"],
+            aisle=item["aisle"],
+            pack_g=item["pack_g"],
+            pack_label=item["pack_label"],
+            product_name=item["product_name"],
+            price_pence=item["price_pence"],
+            retailer=item["retailer"],
+            credit_g=item["credit_g"],
+            product_url=item["product_url"],
+            currency=item["currency"],
+        )
+        ticked = db.one(
+            "SELECT ticked FROM shopping_ticks WHERE item_id = ? ORDER BY id DESC LIMIT 1",
+            (item["id"],),
+        )
+        if ticked is not None and int(ticked["ticked"]):
+            db.insert("shopping_ticks", item_id=copied, person_id=person_id, ticked=1)

@@ -13,6 +13,7 @@ from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from .. import links
 from ..clock import Clock, isoday, parse_day
 from ..db import Db
 from .catalogue import DEFAULT_AISLES, num
@@ -338,6 +339,8 @@ def _write(
             from_day=from_day,
             to_day=to_day,
             basis=basis,
+            # a joint list belongs to the link it was built under (migration 0007)
+            link_id=links.active_link_id(db) if person_id is None else None,
         )
         for item in items:
             item.list_id = list_id
@@ -995,6 +998,7 @@ from .shopping_lists import (  # noqa: E402
     _joint_stale,
     _list_owners,
     _menu_span,
+    close_joint,
     cooks_daily,
     current_leftovers,
     item_readable,
@@ -1060,6 +1064,7 @@ __all__ = [
     "forward_text",
     "item_readable",
     "joint_dish_owners",
+    "close_joint",
     "joint_once",
     "joint_weekend",
     "keeps_days",

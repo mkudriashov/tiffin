@@ -71,6 +71,45 @@ CREATE TABLE IF NOT EXISTS pairing_uses (
     used_at         TEXT NOT NULL
 );
 
+-- Linking two people (migration 0007). A link is a code one of them mints and the other enters;
+-- everything that happens to it afterwards is a link_events row. A link is active when its newest
+-- event is 'accepted'. Nothing here is ever updated.
+CREATE TABLE IF NOT EXISTS links (
+    id          INTEGER PRIMARY KEY,
+    a_person    INTEGER NOT NULL REFERENCES persons(id),
+    b_person    INTEGER NOT NULL REFERENCES persons(id),
+    code_sha256 TEXT NOT NULL UNIQUE,
+    expires_at  TEXT NOT NULL,
+    created_at  TEXT NOT NULL,
+    CHECK (a_person <> b_person)
+);
+CREATE TABLE IF NOT EXISTS link_events (
+    id         INTEGER PRIMARY KEY,
+    link_id    INTEGER NOT NULL REFERENCES links(id),
+    person_id  INTEGER REFERENCES persons(id),
+    event      TEXT NOT NULL CHECK (event IN ('offered', 'accepted', 'declined', 'unlinked', 'expired')),
+    method     TEXT NOT NULL CHECK (method IN ('telegram', 'web', 'cli', 'migrated', 'system')),
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_link_events_link ON link_events(link_id, id DESC);
+-- a code is accepted once, whatever races
+CREATE UNIQUE INDEX IF NOT EXISTS ux_link_events_accepted ON link_events(link_id) WHERE event = 'accepted';
+-- every code entered, so that guessing runs into a limit
+CREATE TABLE IF NOT EXISTS link_attempts (
+    id         INTEGER PRIMARY KEY,
+    person_id  INTEGER NOT NULL REFERENCES persons(id),
+    ok         INTEGER NOT NULL CHECK (ok IN (0, 1)),
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_link_attempts ON link_attempts(person_id, id DESC);
+-- A joint weekend list is closed when its link ends; nobody reads a closed list.
+CREATE TABLE IF NOT EXISTS shopping_list_closures (
+    id         INTEGER PRIMARY KEY,
+    list_id    INTEGER NOT NULL UNIQUE REFERENCES shopping_lists(id),
+    link_id    INTEGER REFERENCES links(id),
+    created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS web_login_links (
     id INTEGER PRIMARY KEY,
     person_id INTEGER NOT NULL REFERENCES persons(id),
@@ -436,7 +475,10 @@ CREATE TABLE IF NOT EXISTS shared_menus (
     segment_end      TEXT NOT NULL,
     source_shared_id INTEGER REFERENCES shared_menus(id),
     model_used       TEXT,
-    created_at       TEXT NOT NULL
+    created_at       TEXT NOT NULL,
+    -- migration 0007: the link this weekend was cooked under. Once that link ends the two menus
+    -- are ordinary ones. NULL on a weekend from before links: open only while a link is active.
+    link_id          INTEGER REFERENCES links(id)
 );
 CREATE TABLE IF NOT EXISTS shared_menu_members (
     id             INTEGER PRIMARY KEY,
@@ -514,7 +556,9 @@ CREATE TABLE IF NOT EXISTS shopping_lists (
     -- a range list's last day, and the plates it was built from (day, meal, dish, size): a
     -- skip, a swap or a rebuild changes them, and the list is built again
     to_day         TEXT,
-    basis          TEXT
+    basis          TEXT,
+    -- migration 0007: the link a joint weekend list was built under; NULL on a person's own
+    link_id        INTEGER REFERENCES links(id)
 );
 CREATE TABLE IF NOT EXISTS shopping_items (
     id            INTEGER PRIMARY KEY,

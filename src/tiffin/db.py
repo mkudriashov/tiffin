@@ -22,7 +22,7 @@ from .clock import DEFAULT_CLOCK, Clock
 
 SCHEMA_PATH = Path(__file__).with_name("schema.sql")
 MIGRATIONS_DIR = Path(__file__).with_name("migrations")
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 PROJECTION_TABLES = frozenset({"icu_wellness", "icu_activity"})
 STATE_TABLES = frozenset(

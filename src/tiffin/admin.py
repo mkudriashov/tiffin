@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from . import db as dbmod
+from . import links
 from .clock import DEFAULT_CLOCK, Clock
 from .db import Db
 
@@ -253,6 +254,17 @@ def _erase_rows(
         # whatever sqlite_master happens to list, so the foreign keys are checked once at
         # COMMIT rather than after each statement. Nothing here was ever tested end to end.
         db.execute("PRAGMA defer_foreign_keys = ON")
+        # a person leaving ends their link first, so the other is not left linked to nobody; the
+        # event has no person on it, because the rows that name this person are about to go
+        from .food import shopping  # noqa: PLC0415 (food imports the db layer)
+
+        linked = links.active_link(db)
+        if linked is not None and pid in (int(linked["a_person"]), int(linked["b_person"])):
+            db.insert(
+                "link_events", link_id=int(linked["id"]), person_id=None,
+                event="unlinked", method="system",
+            )  # fmt: skip
+            shopping.close_joint(db, int(linked["id"]), (), clock.today_local())
         # A login rebound from another person must not become active again when its newest
         # identity row is erased. Remove every older attachment of each login this person owns.
         current_logins = db.all(

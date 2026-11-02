@@ -34,6 +34,8 @@ def test_v4_tailscale_identity_migrates_without_losing_rows(frozen_clock) -> Non
             "CREATE TABLE schema_version(version INTEGER, applied_at TEXT);"
             "INSERT INTO schema_version VALUES (4, '2026-09-07 19:30:00');"
             "CREATE TABLE persons(id INTEGER PRIMARY KEY);"
+            "CREATE TABLE shared_menus(id INTEGER PRIMARY KEY);"
+            "CREATE TABLE shopping_lists(id INTEGER PRIMARY KEY);"
             "INSERT INTO persons(id) VALUES (1), (2);"
             "CREATE TABLE tailscale_identities("
             "id INTEGER PRIMARY KEY, person_id INTEGER NOT NULL REFERENCES persons(id), "
