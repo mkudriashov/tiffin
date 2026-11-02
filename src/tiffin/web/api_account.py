@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
+from .. import release
 from ..clock import isoday, stamp
 from ..db import Db
 from ..food.products import ZERO_DECIMAL_CURRENCIES, price_decimals
@@ -122,6 +123,17 @@ async def _may_see_health_detail(request: Request) -> bool:
     ):
         person = await run_in_threadpool(Resolver(app).by_login, request.headers[HEADER])
     return person is not None and person.is_admin
+
+
+@router.get("/api/version")
+@router.get("/version")
+async def version(request: Request) -> dict[str, str]:
+    """Release and commit, for the container's own check and the signed-in owner. Anyone else,
+    including a stranger or the partner through the proxy, gets the same 404 as a page that is not
+    there. No secret, path or person in the reply."""
+    if not await _may_see_health_detail(request):
+        raise HTTPException(status_code=404, detail="Not found")
+    return release.info()
 
 
 @router.get("/api/health")

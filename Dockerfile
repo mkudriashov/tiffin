@@ -23,11 +23,16 @@ FROM python:3.14.10-slim-bookworm@sha256:516b51cb9db2ef061e465c803e50f64361b82ce
 # Runs as a non-root user. Change the number here, or set `user:` in compose; everything the
 # process writes is under /data, and the code is world-readable.
 ARG TIFFIN_UID=10010
+# Stamped by the build so /tiffin/api/version can say what is running (release id, source commit).
+ARG RELEASE_ID=unknown
+ARG RELEASE_COMMIT=unknown
 ENV PATH=/opt/venv/bin:$PATH \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     TIFFIN_HOME=/data \
     TIFFIN_CONTAINER=docker \
+    TIFFIN_RELEASE=${RELEASE_ID} \
+    TIFFIN_COMMIT=${RELEASE_COMMIT} \
     HOME=/data/home \
     TMPDIR=/data/tmp \
     XDG_CACHE_HOME=/data/home/.cache

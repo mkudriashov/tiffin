@@ -49,7 +49,7 @@ HEADER = "tailscale-user-login"
 DEV_HEADER = "x-dev-person"
 SESSION_COOKIE = "tiffin_session"
 MODES = ("header", "signed_link", "telegram")
-EXEMPT_PATHS = frozenset({"/api/health"})
+EXEMPT_PATHS = frozenset({"/api/health", "/api/version", "/version"})  # each answers for itself
 HEADER_REFUSED = (
     "web.identity_mode = header trusts a login header that any client can send unless a "
     "proxy you control sets it and strips the client's copy. Set "
