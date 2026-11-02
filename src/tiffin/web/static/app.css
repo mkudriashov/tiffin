@@ -191,7 +191,7 @@ select {
   font: inherit;
 }
 label { font-size: 0.88rem; color: var(--muted); }
-input[type="date"], input[type="text"], input[type="search"] {
+input[type="date"], input[type="text"], input[type="search"], input[type="number"] {
   min-height: 44px;
   padding: 0 10px;
   border-radius: 6px;
@@ -201,6 +201,10 @@ input[type="date"], input[type="text"], input[type="search"] {
   font: inherit;
   width: 100%;
 }
+/* The minutes box and its button on Today sit on one line and wrap on a narrow phone. */
+.session-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.session-form input[type="number"] { width: 7rem; }
+.session-form > p { flex-basis: 100%; }
 /* Navigation and cook-day controls share the same touch target and selected state. */
 .row button {
   min-height: 44px;
