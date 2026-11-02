@@ -20,6 +20,7 @@ import binascii
 import datetime as dt
 import hashlib
 import hmac
+import html
 import ipaddress
 import secrets as pysecrets
 from collections.abc import Callable
@@ -30,12 +31,12 @@ from urllib.parse import parse_qs
 from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import Headers
 from starlette.requests import cookie_parser
-from starlette.responses import JSONResponse, RedirectResponse, Response
+from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from .. import log
 from ..app import App
-from ..clock import DEFAULT_CLOCK, Clock
+from ..clock import DEFAULT_CLOCK, Clock, stamp
 from ..config import Config
 from ..db import Db
 from ..errors import ConfigError
@@ -49,8 +50,21 @@ DEV_HEADER = "x-dev-person"
 SESSION_COOKIE = "tiffin_session"
 MODES = ("header", "signed_link", "telegram")
 EXEMPT_PATHS = frozenset({"/api/health"})
+HEADER_REFUSED = (
+    "web.identity_mode = header trusts a login header that any client can send unless a "
+    "proxy you control sets it and strips the client's copy. Set "
+    "web.trusted_header_proxy = true to say that is so, or use identity_mode = telegram"
+)
 NO_IDENTITY = "no identity"
+INVALID_SESSION = "invalid session"
 UNKNOWN_IDENTITY = "unknown identity"
+#: a signed-in device is signed out after this long without a request, and after SESSION_DAYS
+#: whatever it does; "seen" is written at most every SEEN_EVERY_HOURS, so a busy device costs
+#: two ledger rows a day
+IDLE_DAYS = 14
+SESSION_DAYS = 90
+SEEN_EVERY_HOURS = 12
+MAX_FORM_BYTES = 2048
 
 
 def login_digest(login: str) -> str:
@@ -180,7 +194,7 @@ def consume_login_link(
             return None
         db.insert("web_link_uses", link_id=row["id"], used_at=app.clock.utc_stamp())
         session = pysecrets.token_urlsafe(32)
-        expires = app.clock.now_utc() + dt.timedelta(days=90)
+        expires = app.clock.now_utc() + dt.timedelta(days=SESSION_DAYS)
         db.insert(
             "web_devices",
             person_id=person.id,
@@ -190,20 +204,46 @@ def consume_login_link(
         return person, session
 
 
-def device_for(app: App, token: str) -> tuple[Person, int] | None:
+def link_is_live(app: App, token: str) -> bool:
+    """Whether a sign-in link could be used now. Reads only: a preview must not spend it."""
+    if len(token) > 128 or not token.isascii():
+        return False
+    with Db.open(app.config.paths.db, clock=app.clock, migrate_first=False) as db:
+        return (
+            db.one(
+                "SELECT l.id FROM web_login_links l "
+                "LEFT JOIN web_link_uses u ON u.link_id = l.id "
+                "WHERE l.token_hash = ? AND l.expires_at > ? AND u.id IS NULL",
+                (_hash(token), app.clock.utc_stamp()),
+            )
+            is not None
+        )
+
+
+def device_for(app: App, token: str, *, touch: bool = False) -> tuple[Person, int] | None:
+    """The person and device a session cookie names, or None when it is unknown, signed out,
+    past its 90 days, or idle for 14. `touch` records that the device was just used."""
     if len(token) > 128 or not token.isascii():
         return None
+    now = app.clock.now_utc()
     with Db.open(app.config.paths.db, clock=app.clock, migrate_first=False) as db:
         row = db.one(
-            "SELECT d.id, d.person_id FROM web_devices d "
+            "SELECT d.id, d.person_id, COALESCE("
+            "(SELECT MAX(s.created_at) FROM web_device_seen s WHERE s.device_id = d.id), "
+            "d.created_at) AS last_seen "
+            "FROM web_devices d "
             "LEFT JOIN web_device_events e ON e.device_id = d.id "
             "WHERE d.token_hash = ? AND d.expires_at > ? AND e.id IS NULL",
             (_hash(token), app.clock.utc_stamp()),
         )
-        if row is None:
+        if row is None or str(row["last_seen"]) <= stamp(now - dt.timedelta(days=IDLE_DAYS)):
             return None
         person = app.registry(db).by_id(int(row["person_id"]))
-        return (person, int(row["id"])) if person and not person.erased else None
+        if person is None or person.erased:
+            return None
+        if touch and str(row["last_seen"]) <= stamp(now - dt.timedelta(hours=SEEN_EVERY_HOURS)):
+            db.insert("web_device_seen", device_id=int(row["id"]))
+        return person, int(row["id"])
 
 
 # -- settings and lookups ----------------------------------------------------------------------
@@ -215,6 +255,8 @@ class IdentitySettings:
     hmac_key: bytes | None = None
     secure_cookies: bool = True
     demo_person: Person | None = None
+    origin: str = ""
+    signed_out_redirect: str = ""
 
     @property
     def cookie_path(self) -> str:
@@ -222,9 +264,11 @@ class IdentitySettings:
 
 
 def settings_from(config: Config, secrets: Secrets) -> IdentitySettings:
-    mode = str(config.get("web.identity_mode", "header"))
+    mode = str(config.get("web.identity_mode", "telegram"))
     if mode not in MODES:
         raise ConfigError(f"web.identity_mode must be one of {MODES}, got {mode!r}")
+    if mode == "header" and config.get("web.trusted_header_proxy", False) is not True:
+        raise ConfigError(HEADER_REFUSED)
     host = str(config.get("web.host", "127.0.0.1"))
     key = secrets.get("web_hmac_key").encode("utf-8") if mode == "signed_link" else None
     return IdentitySettings(
@@ -232,6 +276,8 @@ def settings_from(config: Config, secrets: Secrets) -> IdentitySettings:
         dev_bypass=config.env == "dev" and is_loopback(host),
         root_path=str(config.get("web.root_path", "/tiffin")).rstrip("/"),
         hmac_key=key,
+        origin=str(config.get("web.origin", "")).rstrip("/"),
+        signed_out_redirect=str(config.get("web.signed_out_redirect", "")),
         secure_cookies=str(config.get("web.origin", "")).startswith("https://")
         and (config.is_prod or bool(config.get("web.secure_cookies", True))),
     )
@@ -303,13 +349,32 @@ class IdentityMiddleware:
             await self.app(scope, receive, send)
             return
         headers = Headers(scope=scope)
-        if self.settings.mode in ("signed_link", "telegram") and path == "/":
+        method = scope.get("method", "GET")
+        if self.settings.mode == "telegram" and path == "/":
+            if method == "POST":
+                await self._sign_in(scope, receive, send)
+                return
+            tokens = parse_qs(scope.get("query_string", b"").decode("latin-1")).get("k")
+            if tokens and method in ("GET", "HEAD"):
+                await self._offer_link(scope, receive, send, tokens[0])
+                return
+        elif self.settings.mode == "signed_link" and path == "/":
             tokens = parse_qs(scope.get("query_string", b"").decode("latin-1")).get("k")
             if tokens:
                 await self._enter_link(scope, receive, send, tokens[0])
                 return
         person, error = await self._resolve(headers)
         if person is None:
+            target = self.settings.signed_out_redirect
+            if (
+                target
+                and self.settings.mode == "telegram"
+                and path == "/"
+                and method in ("GET", "HEAD")
+                and error in (NO_IDENTITY, INVALID_SESSION)
+            ):
+                await RedirectResponse(target, status_code=303)(scope, receive, send)
+                return
             await _reject(scope, receive, send, error, mode=self.settings.mode)
             return
         scope.setdefault("state", {})["person"] = person
@@ -332,10 +397,12 @@ class IdentityMiddleware:
         elif s.mode == "telegram":
             token = cookie_parser(headers.get("cookie", "")).get(SESSION_COOKIE)
             if token:
-                found = await run_in_threadpool(device_for, self.resolver.app, token)
+                found = await run_in_threadpool(
+                    lambda: device_for(self.resolver.app, token, touch=True)
+                )
                 if found is not None:
                     return found[0], ""
-                return None, "invalid session"
+                return None, INVALID_SESSION
         else:
             token = cookie_parser(headers.get("cookie", "")).get(SESSION_COOKIE)
             if token:
@@ -356,37 +423,64 @@ class IdentityMiddleware:
             return None
         return verify_link_token(key, token, now=int(self.clock.now_utc().timestamp()))
 
-    async def _enter_link(self, scope: Scope, receive: Receive, send: Send, token: str) -> None:
-        if self.settings.mode == "telegram":
-            cookies = cookie_parser(Headers(scope=scope).get("cookie", ""))
-            existing = cookies.get(SESSION_COOKIE)
-            current = (
-                await run_in_threadpool(device_for, self.resolver.app, existing)
-                if existing
-                else None
-            )
-            found = await run_in_threadpool(
-                consume_login_link,
-                self.resolver.app,
-                token,
-                current[0].id if current else None,
-            )
-            if found is None:
+    async def _offer_link(self, scope: Scope, receive: Receive, send: Send, token: str) -> None:
+        """A page whose button sends the token back. Opening the link spends nothing, so a
+        chat app's link preview cannot use up the one use before the person does."""
+        live = await run_in_threadpool(link_is_live, self.resolver.app, token)
+        if not live:
+            await _reject(scope, receive, send, "bad link", mode=self.settings.mode)
+            return
+        action = html.escape(self.settings.root_path + "/", quote=True)
+        page = _CONFIRM_PAGE.format(action=action, token=html.escape(token, quote=True))
+        await HTMLResponse(page, headers={"X-Robots-Tag": "noindex"})(scope, receive, send)
+
+    async def _sign_in(self, scope: Scope, receive: Receive, send: Send) -> None:
+        headers = Headers(scope=scope)
+        origin = headers.get("origin")
+        if (origin and origin.rstrip("/") != self.settings.origin) or (
+            headers.get("sec-fetch-site", "") == "cross-site"
+        ):
+            await _reject(scope, receive, send, "bad link", mode=self.settings.mode)
+            return
+        body = b""
+        while True:
+            message = await receive()
+            body += message.get("body", b"")
+            if len(body) > MAX_FORM_BYTES:
                 await _reject(scope, receive, send, "bad link", mode=self.settings.mode)
                 return
-            _, session = found
-            response: Response = RedirectResponse(self.settings.root_path + "/", status_code=303)
-            response.set_cookie(
-                SESSION_COOKIE,
-                session,
-                max_age=90 * 86400,
-                path=self.settings.cookie_path,
-                secure=self.settings.secure_cookies,
-                httponly=True,
-                samesite="strict",
-            )
-            await response(scope, receive, send)
+            if not message.get("more_body", False):
+                break
+        tokens = parse_qs(body.decode("latin-1")).get("k")
+        if not tokens:
+            await _reject(scope, receive, send, NO_IDENTITY, mode=self.settings.mode)
             return
+        cookies = cookie_parser(headers.get("cookie", ""))
+        existing = cookies.get(SESSION_COOKIE)
+        current = (
+            await run_in_threadpool(device_for, self.resolver.app, existing) if existing else None
+        )
+        found = await run_in_threadpool(
+            consume_login_link, self.resolver.app, tokens[0], current[0].id if current else None
+        )
+        if found is None:
+            await _reject(scope, receive, send, "bad link", mode=self.settings.mode)
+            return
+        _, session = found
+        response: Response = RedirectResponse(self.settings.root_path + "/", status_code=303)
+        response.set_cookie(
+            SESSION_COOKIE,
+            session,
+            max_age=SESSION_DAYS * 86400,
+            path=self.settings.cookie_path,
+            secure=self.settings.secure_cookies,
+            httponly=True,
+            samesite=SAMESITE,
+        )
+        await response(scope, receive, send)
+
+    async def _enter_link(self, scope: Scope, receive: Receive, send: Send, token: str) -> None:
+        """Signed-link mode only (kept for installations that already use it)."""
         person_id = self._person_id_of(token)
         person = (
             await run_in_threadpool(self.resolver.by_id, person_id)
@@ -406,7 +500,7 @@ class IdentityMiddleware:
             path=self.settings.cookie_path,
             secure=self.settings.secure_cookies,
             httponly=True,
-            samesite="strict",
+            samesite=SAMESITE,
         )
         await response(scope, receive, send)
 
@@ -443,6 +537,27 @@ _REFUSED_PAGE = (
 )
 
 
+_CONFIRM_PAGE = (
+    '<!doctype html><html lang="en-GB"><head><meta charset="utf-8">'
+    '<meta name="viewport" content="width=device-width, initial-scale=1">'
+    '<meta name="robots" content="noindex"><meta name="referrer" content="no-referrer">'
+    "<title>Sign in</title></head>"
+    '<body style="font:16px/1.5 system-ui,sans-serif;margin:2rem;max-width:36rem">'
+    "<h1>Sign in to Tiffin</h1>"
+    "<p>This link signs this phone or computer in as you. It works once and only for a few "
+    "minutes.</p>"
+    '<form method="post" action="{action}">'
+    '<input type="hidden" name="k" value="{token}">'
+    '<button type="submit" style="font:inherit;padding:.6rem 1.2rem">Sign in on this device'
+    "</button></form></body></html>"
+)
+
+#: Lax, not Strict: a link opened from a chat app is a cross-site navigation, and a Strict
+#: cookie is withheld from it, so the page would greet a signed-in person as a stranger. Lax
+#: still withholds the cookie from cross-site POSTs; writes also need the CSRF double-submit.
+SAMESITE = "lax"
+
+
 async def _reject(
     scope: Scope, receive: Receive, send: Send, error: str, *, mode: str = "header"
 ) -> None:
@@ -451,8 +566,6 @@ async def _reject(
     if route_path(scope).startswith("/api/"):
         await JSONResponse({"error": error, "detail": says}, status_code=403)(scope, receive, send)
         return
-    from starlette.responses import HTMLResponse  # noqa: PLC0415 (only a refusal needs it)
-
     await HTMLResponse(_REFUSED_PAGE.format(says=says), status_code=403)(scope, receive, send)
 
 

@@ -139,6 +139,8 @@ def check_fence(request: Request, body: Mapping[str, Any], allowed: set[str]) ->
     expected = str(request.app.state.tiffin.config.get("web.origin", ""))
     if origin and expected and origin.rstrip("/") != expected.rstrip("/"):
         raise HTTPException(status_code=403, detail="bad origin")
+    if request.headers.get("sec-fetch-site", "") == "cross-site":
+        raise HTTPException(status_code=403, detail="bad origin")
     unknown = sorted(set(body) - allowed)
     if unknown:
         raise HTTPException(status_code=400, detail=f"unknown fields: {', '.join(unknown)}")

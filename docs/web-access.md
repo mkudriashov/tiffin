@@ -17,3 +17,14 @@ Point the domain at the server and allow HTTPS traffic to Caddy, then start tiff
 For a new remote deployment, run `uv run --no-sync python tools/check_web_access.py https://tiffin.example.com` from the checkout after starting the proxy. Add `--root-path /tiffin` if the configured mount path is `/tiffin`. The check reaches the public HTTPS route, verifies that an unsigned visitor cannot read `/api/me`, and sends a forged identity header to check that it grants no access. Then send `/web`, open the one-use link, and verify that the signed-in page loads and `tiffin devices` shows the new session. Finally, revoke that session and verify that its page access ends. Repeat this check after changing the proxy, origin or mount path.
 
 `tiffin demo` is a separate temporary loopback server with example data. Its sign-in bypass is available only through the demo application class, never through `tiffin.toml` or the normal `tiffin run` command.
+
+## Sign-in details
+
+- **Telegram sign-in is the default.** `web.identity_mode = "header"` is refused unless `web.trusted_header_proxy = true`, which says that a proxy you control sets the login header and strips any copy a client sends. `tiffin init --web-mode tailscale` sets both.
+- **The link opens a page with a button.** Opening `?k=...` shows a "Sign in on this device" page and spends nothing, so a chat app's link preview cannot use up the one use. The button posts the token back; only then is the device signed in. The page sends `Referrer-Policy: no-referrer`, is never cached and is not indexed.
+- **The cookie is `HttpOnly`, `Secure` on HTTPS, scoped to `web.root_path` and `SameSite=Lax`.** `Strict` would hide it from a page opened by a link in another app, so the page would look signed out. Writes still need the CSRF double-submit and the configured origin.
+- **A device lasts 90 days and is signed out after 14 days without a request.** Use is recorded at most every 12 hours (the `web_device_seen` ledger), and `tiffin devices` and the page's device list show only devices still in.
+- **One origin.** Writes are accepted only from `web.origin` (and refused when the browser marks them cross-site). When the domain changes, change `web.origin` and the proxy together, then sign in again.
+- **Signed-out visitors.** `web.signed_out_redirect` sends a signed-out visitor to the page root to a path (`/tiffin/overview/`) or an `https://` address of your choice; empty shows the plain instructions. The API and every other page keep refusing.
+- **Behind a container proxy.** Set `web.host = "0.0.0.0"` and `web.bind_trusted_network = true` only when the container's network is reachable by the proxy alone. The proxy may strip or keep the `web.root_path` prefix; both work.
+- **One Telegram poller per bot.** A second `tiffin run` on the same data directory stops with "another tiffin holds the lock" (exit 3), and a second poller on another machine gets Telegram's conflict error. Stop the old one first.

@@ -147,6 +147,7 @@ SHARED: dict[str, str] = {
     "pairing_uses": "belongs to pairing_codes, which is kept",
     "web_link_uses": "belongs to web_login_links, which is kept",
     "web_device_events": "belongs to web_devices, which is kept",
+    "web_device_seen": "belongs to web_devices, which is kept",
     "bot_state": "the update offset; losing it replays or skips Telegram updates",
     "icu_sync_state": "where the intervals.icu sync got to",
     "icu_type_map": "the shared activity-type mapping",

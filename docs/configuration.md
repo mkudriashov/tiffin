@@ -47,7 +47,9 @@ Loopback web listener, URL and identity mode. See [web access](web-access.md).
 | `web.port_prod` | `7788` | Port prod. |
 | `web.port_dev` | `7789` | Port dev. |
 | `web.root_path` | `"/tiffin"` | URL mount path with ordinary segments; use an empty string when served at `/`. |
-| `web.identity_mode` | `"header"` | `telegram` uses a one-use bot link; `header` trusts Tailscale Serve; `signed_link` is retained for existing installations. |
+| `web.identity_mode` | `"telegram"` | `telegram` (default) uses a one-use bot link; `header` trusts Tailscale Serve and needs `trusted_header_proxy`; `signed_link` is retained for existing installations. |
+| `web.trusted_header_proxy` | `false` | Must be `true` for `identity_mode = "header"`: it says a proxy you control sets the login header and removes any copy a client sends. |
+| `web.signed_out_redirect` | `""` | Where a signed-out visitor to the page root is sent: a path beginning with `/` or an `https://` URL. Empty shows the sign-in instructions. |
 | `web.origin` | `"https://tiffin.example.ts.net"` | Browser-facing HTTP(S) origin, with no path or credentials. HTTPS is required away from loopback for Telegram sign-in. |
 | `web.secure_cookies` | `true` | Secure cookies for development HTTPS; production HTTPS always uses Secure cookies. |
 

@@ -28,7 +28,13 @@ bind_trusted_network = false
 port_prod = 7788
 port_dev = 7789
 root_path = "/tiffin"
-identity_mode = "header"
+identity_mode = "telegram"
+# header mode trusts a login header, so it is refused unless this says a proxy you control
+# sets that header and removes the client's copy.
+trusted_header_proxy = false
+# Where a signed-out visitor to the root of the page is sent (a path or an https URL).
+# Empty shows the plain sign-in instructions.
+signed_out_redirect = ""
 origin = "https://tiffin.example.ts.net"
 secure_cookies = true
 

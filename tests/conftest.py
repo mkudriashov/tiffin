@@ -98,6 +98,10 @@ def config(tmp_path: Path):
     # the fake models answer by index into the list in code order; the weekly shuffle has tests
     # of its own (test_personal.py)
     loaded.data["models"]["shuffle_catalogue"] = False
+    # most web tests sign in with the Tailscale header; the packaged default is Telegram
+    # sign-in, which test_web_signin.py and test_web_devices.py use
+    loaded.data["web"]["identity_mode"] = "header"
+    loaded.data["web"]["trusted_header_proxy"] = True
     loaded.data["persons"]["owner"]["chat_id"] = 1000001
     loaded.data["chrome"]["shop_refresh_enabled"] = True
     loaded.data["chrome"]["shop_fill_enabled"] = True

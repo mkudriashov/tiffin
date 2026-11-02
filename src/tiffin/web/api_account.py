@@ -11,12 +11,12 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
-from ..clock import isoday
+from ..clock import isoday, stamp
 from ..db import Db
 from ..food.products import ZERO_DECIMAL_CURRENCIES, price_decimals
 from ..heartbeat import Heartbeat
 from .api_common import CSRF_COOKIE, _body, _db, _person, _read, _row_id, _today, check_fence
-from .identity import SESSION_COOKIE, device_for
+from .identity import IDLE_DAYS, SESSION_COOKIE, device_for
 
 router = APIRouter()
 
@@ -29,8 +29,14 @@ async def devices(request: Request) -> dict[str, Any]:
         rows = db.all(
             "SELECT d.id, d.created_at FROM web_devices d "
             "LEFT JOIN web_device_events e ON e.device_id = d.id "
-            "WHERE d.person_id = ? AND d.expires_at > ? AND e.id IS NULL ORDER BY d.id DESC",
-            (person.id, db.clock.utc_stamp()),
+            "WHERE d.person_id = ? AND d.expires_at > ? AND e.id IS NULL "
+            "AND COALESCE((SELECT MAX(s.created_at) FROM web_device_seen s "
+            "WHERE s.device_id = d.id), d.created_at) > ? ORDER BY d.id DESC",
+            (
+                person.id,
+                db.clock.utc_stamp(),
+                stamp(db.clock.now_utc() - dt.timedelta(days=IDLE_DAYS)),
+            ),
         )
         token = request.cookies.get(SESSION_COOKIE, "")
         current = device_for(request.app.state.tiffin, token) if token else None

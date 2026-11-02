@@ -50,12 +50,21 @@ SECTIONS = {
 
 SPECIAL = {
     "web.identity_mode": (
-        "`telegram` uses a one-use bot link; `header` trusts Tailscale Serve; "
+        "`telegram` (default) uses a one-use bot link; `header` trusts Tailscale Serve and needs "
+        "`trusted_header_proxy`; "
         "`signed_link` is retained for existing installations."
     ),
     "web.bind_trusted_network": (
         "`true` lets the page bind an address other than loopback, for a container on a network "
         "only your reverse proxy can reach. Never publish that port directly."
+    ),
+    "web.trusted_header_proxy": (
+        'Must be `true` for `identity_mode = "header"`: it says a proxy you control sets the '
+        "login header and removes any copy a client sends."
+    ),
+    "web.signed_out_redirect": (
+        "Where a signed-out visitor to the page root is sent: a path beginning with `/` or an "
+        "`https://` URL. Empty shows the sign-in instructions."
     ),
     "web.root_path": (
         "URL mount path with ordinary segments; use an empty string when served at `/`."

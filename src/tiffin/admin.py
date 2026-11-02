@@ -81,6 +81,10 @@ def child_selects(db: Db, person_id: int, chat_ids: list[int]) -> dict[str, tupl
             "device_id IN (SELECT id FROM web_devices WHERE person_id = ?)",
             (person_id,),
         ),
+        "web_device_seen": (
+            "device_id IN (SELECT id FROM web_devices WHERE person_id = ?)",
+            (person_id,),
+        ),
         "intent_decisions": (
             "intent_id IN (SELECT id FROM intents WHERE person_id = ?)",
             (person_id,),

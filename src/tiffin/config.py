@@ -194,6 +194,24 @@ def _validate(data: Mapping[str, Any]) -> None:
         raise ConfigError("web.bind_trusted_network must be true or false")
     if web.get("identity_mode") not in ("header", "signed_link", "telegram"):
         raise ConfigError("web.identity_mode must be header, telegram or signed_link")
+    if not isinstance(web.get("trusted_header_proxy"), bool):
+        raise ConfigError("web.trusted_header_proxy must be true or false")
+    if web.get("identity_mode") == "header" and web["trusted_header_proxy"] is not True:
+        raise ConfigError(
+            "web.identity_mode = header needs web.trusted_header_proxy = true, "
+            "and a proxy that sets the login header and strips the client's copy"
+        )
+    redirect = web.get("signed_out_redirect")
+    if not isinstance(redirect, str) or (
+        redirect
+        and not (
+            (redirect.startswith("/") and not redirect.startswith("//") and "\\" not in redirect)
+            or redirect.startswith("https://")
+        )
+    ):
+        raise ConfigError(
+            "web.signed_out_redirect must be empty, a path beginning with one /, or an https URL"
+        )
     try:
         origin = urlsplit(str(web.get("origin", "")))
         origin_host, _ = origin.hostname, origin.port

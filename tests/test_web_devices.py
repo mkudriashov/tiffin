@@ -12,6 +12,8 @@ from tiffin.secrets import Secrets
 from tiffin.web.app import create_app
 from tiffin.web.identity import consume_login_link, device_for, issue_login_link
 
+from .signin import sign_in
+
 
 def _app(config, fixture_db: Db, frozen_clock):
     config = replace(config, paths=replace(config.paths, db=fixture_db.path))
@@ -48,18 +50,18 @@ def test_cookie_flags_and_cross_person_device_refusal(
     partner_link = issue_login_link(app, fixture_db, partner)
     owner_client = TestClient(create_app(app), base_url="https://tiffin.example.com")
     partner_client = TestClient(create_app(app), base_url="https://tiffin.example.com")
-    response = owner_client.get(owner_link, follow_redirects=False)
+    response = sign_in(owner_client, owner_link)
     assert response.status_code == 303
     cookie = response.headers["set-cookie"]
     assert "httponly" in cookie.lower()
-    assert "samesite=strict" in cookie.lower()
+    assert "samesite=lax" in cookie.lower()
     assert "secure" in cookie.lower()
     assert owner_client.get("/api/whoami").json()["person_id"] == owner.id
-    assert owner_client.get(owner_link, follow_redirects=False).status_code == 403
-    partner_client.get(partner_link, follow_redirects=False)
+    assert sign_in(owner_client, owner_link).status_code == 403
+    sign_in(partner_client, partner_link)
     another_owner_link = issue_login_link(app, fixture_db, owner)
-    assert partner_client.get(another_owner_link, follow_redirects=False).status_code == 403
-    assert owner_client.get(another_owner_link, follow_redirects=False).status_code == 303
+    assert sign_in(partner_client, another_owner_link).status_code == 403
+    assert sign_in(owner_client, another_owner_link).status_code == 303
     me = partner_client.get("/api/me")
     csrf = me.json()["csrf"]
     owner_device = owner_client.get("/api/devices").json()["devices"][0]["id"]
@@ -86,9 +88,9 @@ def test_local_http_cookie_is_not_secure(config, fixture_db, two_persons, frozen
     owner = app.registry(fixture_db).require("owner")
     link = issue_login_link(app, fixture_db, owner)
     client = TestClient(create_app(app), base_url="http://127.0.0.1:7788")
-    response = client.get(link, follow_redirects=False)
+    response = sign_in(client, link)
     cookie = response.headers["set-cookie"].lower()
-    assert "httponly" in cookie and "samesite=strict" in cookie
+    assert "httponly" in cookie and "samesite=lax" in cookie
     assert "secure" not in cookie
 
 
@@ -103,7 +105,7 @@ def test_https_proxy_flow_requires_session_and_rejects_forged_identity(
     assert client.get("/api/whoami", headers=forged).status_code == 403
     link = issue_login_link(app, fixture_db, owner)
     assert link.startswith("https://tiffin.example.com/")
-    response = client.get(link, headers=forged, follow_redirects=False)
+    response = sign_in(client, link)
     assert response.status_code == 303
     assert "secure" in response.headers["set-cookie"].lower()
     assert client.get("/api/whoami", headers=forged).json()["person_id"] == owner.id

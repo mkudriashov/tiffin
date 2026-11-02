@@ -15,6 +15,7 @@ from tiffin.secrets import Secrets
 from tiffin.web.app import create_app
 from tiffin.web.identity import issue_login_link
 
+from .signin import sign_in
 from .test_food_catalogue import BASE_YAML, write_csv, write_yaml
 
 
@@ -112,7 +113,7 @@ def test_manual_web_flow_uses_session_identity_and_csrf(
     owner = tiffin.registry(fixture_db).require("owner")
     partner = tiffin.registry(fixture_db).require("partner")
     client = TestClient(create_app(tiffin), base_url="https://tiffin.example.com")
-    client.get(issue_login_link(tiffin, fixture_db, owner))
+    sign_in(client, issue_login_link(tiffin, fixture_db, owner))
     csrf = client.get("/api/me").json()["csrf"]
     headers = {"X-CSRF-Token": csrf, "Origin": "https://tiffin.example.com"}
     assert client.get("/api/manual").status_code == 200

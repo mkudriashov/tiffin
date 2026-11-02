@@ -372,6 +372,7 @@ def _web(home: Path, args: argparse.Namespace) -> None:
     web: dict[str, object] = {
         "enabled": mode != "off",
         "identity_mode": "header" if mode == "tailscale" else "telegram",
+        "trusted_header_proxy": mode == "tailscale",
         "origin": f"{parsed.scheme}://{parsed.netloc}" if mode != "off" else "",
         "root_path": root_path,
     }
