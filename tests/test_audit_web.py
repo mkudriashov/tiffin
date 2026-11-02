@@ -207,6 +207,8 @@ def test_no_write_route_writes_on_a_malformed_body(onboarded) -> None:
     problems = []
     for path in posts(client):
         for body in bodies:
+            if body == {} and path.startswith("/api/link/") and path != "/api/link/accept":
+                continue  # making, withdrawing and ending a link take no fields: {} is valid
             resp = (
                 client.post(path, content=body, headers=headers)
                 if isinstance(body, str)

@@ -782,6 +782,9 @@ details.trolley-done ul.items.shop li { opacity: .85; }
   background: var(--card); color: var(--muted); border-color: var(--line); border-style: dashed; opacity: 1;
 }
 .more-group a { color: var(--accent); }
+/* the link code, shown once: large, spaced, easy to read out */
+.link-group .link-code { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 1.4rem; letter-spacing: .12em; }
+.link-group input[type="text"] { text-transform: uppercase; flex: 1 1 8rem; min-width: 0; width: auto; }
 
 /* the word on a dish, inside a meal on Today: two pills, not the list's full-width rows that
    every button in ul.items otherwise becomes */

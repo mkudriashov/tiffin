@@ -8,7 +8,7 @@ Tiffin is a self-hosted nutrition, menu, shopping and training app for one perso
 
 - Plans meals from your own energy and nutrient targets, then calculates portions from ingredient data in code.
 - Builds aisle-sorted, pack-aware shopping lists from the included catalogue, keeps track of what is already at home and supports batch cooking. No browser, retailer, product link or price is required.
-- Offers weekly dish choices, recipe cards and shared weekend menus for two people, with separate portions and private targets.
+- Offers weekly dish choices, recipe cards and shared weekend menus for two linked people (a link code one makes and the other enters; either can unlink at any time), with separate portions and private targets. An install holds two people at most.
 - Logs meals and daily confirmations through Telegram, including off-plan meals and corrections.
 - Reads Garmin-linked activity and wellness data through intervals.icu; shows training, weight trends, progress and tape measurements.
 

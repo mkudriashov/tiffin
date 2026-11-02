@@ -81,6 +81,96 @@ export function rhythmPanel(current) {
   return box;
 }
 
+/* ---------------------------------------------------------------- linking to a partner */
+// Two people can be linked: one makes a code, the other enters it in their own account. Until
+// they are, weekends are each person's own. Either can unlink at any time, at once.
+export function linkPanel(link) {
+  const box = el("section", { class: "more-group link-group", "aria-label": "Linking to a partner" });
+  const status = el("p", { class: "muted", role: "status" });
+  const draw = (now, said = "") => {
+    box.replaceChildren(el("h2", { text: "Your partner" }));
+    status.textContent = said;
+    if (now.state === "linked") {
+      box.append(el("p", { text: `You are linked with ${now.partner}.` }),
+        el("p", { class: "muted", text: now.sharing
+          ? "Weekends are cooked together, each with your own portion. You see only the plates and macros of dishes you cook together - never your partner's targets, weight or log."
+          : "Weekends are cooked together once you have both said yes to sharing weekend menus: send /consent to the bot and tap Share weekend menus. Until then they are your own." }));
+      const unlink = el("button", { type: "button", text: "Unlink" });
+      unlink.addEventListener("click", () => {
+        box.replaceChildren(el("h2", { text: "Your partner" }),
+          el("p", { text: "Unlink now? It takes effect at once and your partner is told. A weekend already built stays as it is, and what your partner has already seen is not taken back." }));
+        const yes = el("button", { type: "button", class: "primary", text: "Yes, unlink" });
+        const keep = el("button", { type: "button", text: "Keep it" });
+        keep.addEventListener("click", () => draw(now));
+        yes.addEventListener("click", async () => {
+          yes.disabled = true;
+          try {
+            draw(await api("api/link/unlink", { body: {} }), "You are unlinked. Weekend menus are your own again.");
+          } catch (e) {
+            if (e.status >= 400 && e.status < 500) draw(now, e.message);
+            else fail({ message: e.message, retry: () => yes.click() });
+          }
+        });
+        box.append(el("div", { class: "row" }, yes, keep), status);
+      });
+      box.append(el("div", { class: "row" }, unlink), status);
+      return;
+    }
+    box.append(el("p", { text: "You are not linked. Weekend menus are your own." }));
+    if (!now.partner_joined) {
+      box.append(el("p", { class: "muted", text: "Your partner has not joined yet. Whoever runs this install gives them a join code first; after that you can link here." }), status);
+      return;
+    }
+    if (now.state === "offered") {
+      box.append(el("p", { class: "muted", text: `You have a code out. It runs out ${fmtStamp(now.expires)}.` }));
+    }
+    const make = el("button", { type: "button", text: now.state === "offered" ? "Make a new code" : "Make a code for my partner" });
+    make.addEventListener("click", async () => {
+      make.disabled = true;
+      try {
+        const got = await api("api/link/mint", { body: {} });
+        draw(got, "");
+        const row = box.querySelector(".row");
+        box.insertBefore(el("p", {}, "Your code: ", el("strong", { class: "link-code", text: got.code })), row);
+        box.insertBefore(el("p", { class: "muted", text: "Give it to your partner. They enter it here or send /link and the code to the bot. It works once and runs out in 48 hours. It is shown only now." }), row);
+      } catch (e) {
+        make.disabled = false;
+        if (e.status >= 400 && e.status < 500) status.textContent = e.message;
+        else fail({ message: e.message, retry: () => make.click() });
+      }
+    });
+    box.append(el("div", { class: "row" }, make));
+    if (now.state === "offered") {
+      const cancel = el("button", { type: "button", class: "link", text: "Withdraw my code" });
+      cancel.addEventListener("click", async () => {
+        try { draw(await api("api/link/cancel", { body: {} }), "The code is withdrawn."); }
+        catch (e) { fail(e.message); }
+      });
+      box.append(el("p", {}, cancel));
+    }
+    const field = el("input", { type: "text", id: "link-code-input", autocomplete: "off", autocapitalize: "characters", spellcheck: "false", maxlength: "12", placeholder: "ABCD-EFGH" });
+    const enter = el("button", { type: "button", text: "Link" });
+    const submit = async () => {
+      if (!field.value.trim()) { status.textContent = "Type the code your partner gave you."; return; }
+      enter.disabled = true;
+      try {
+        const got = await api("api/link/accept", { body: { code: field.value } });
+        draw(got, `You are linked with ${got.partner}.`);
+      } catch (e) {
+        enter.disabled = false;
+        if (e.status >= 400 && e.status < 500) status.textContent = e.message;
+        else fail({ message: e.message, retry: submit });
+      }
+    };
+    enter.addEventListener("click", submit);
+    field.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); submit(); } });
+    box.append(el("label", { for: "link-code-input", class: "muted", text: "Or enter the code your partner made:" }),
+      el("div", { class: "row" }, field, enter), status);
+  };
+  draw(link);
+  return box;
+}
+
 // A tab redrawn twice in quick succession (two taps on the week arrows, a window chip tapped
 // while the last one loads) drew whichever answer came back LAST, which was not always the one
 // asked for last. Each draw takes a number; an answer to an older ask is dropped.
@@ -210,10 +300,11 @@ export function planPanel(said = "") {
 // More: what is set once and changed rarely, out of the way of what is used every day
 export async function renderMore() {
   const ticket = drawTicket("more");
-  const [today, status, devices] = await Promise.all([
+  const [today, status, devices, link] = await Promise.all([
     api(`api/today?date=${state.today}`).catch(() => null),
     api("api/status").catch(() => null),
     api("api/devices").catch(() => null),
+    api("api/link").catch(() => null),
   ]);
   if (outdated("more", ticket)) return;
   const body = $("#more-body");
@@ -238,6 +329,7 @@ export async function renderMore() {
   food.append(el("p", { class: "muted",
     text: "Everything else - what Skip does, variety, your kitchen - changes when you tell the bot, or with /set." }));
   body.append(food);
+  if (link) body.append(linkPanel(link));
   const yours = el("section", { class: "more-group", "aria-label": "Your data" });
   yours.append(el("h2", { text: "Your data" }));
   // everything Tiffin holds about you, to keep: yours to read, whenever you like

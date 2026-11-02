@@ -997,6 +997,8 @@ export function weekendPanel(w) {
   const summary = el("summary", { text: `Weekend ${dayName(w.start)} and ${dayName(w.end)}: ${modeWord(w.switch?.mode)}, ${tasteWord(w.taste)}` });
   box.append(summary);
   const said = el("p", { class: "muted", role: "status" });
+  // no switch to show: a lone person is told the weekend is their own, a linked pair what is missing
+  if (!w.switch && w.note) box.append(el("p", { class: "muted", text: w.note }));
   const choose = (label, options, current, send) => {
     const row = el("div", { class: "row", role: "group", "aria-label": label });
     const buttons = [];

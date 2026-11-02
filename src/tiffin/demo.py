@@ -12,6 +12,7 @@ from collections.abc import Mapping
 from dataclasses import replace
 from pathlib import Path
 
+from . import links
 from .app import App
 from .clock import Clock, week_start
 from .config import Config, deep_merge, load
@@ -439,11 +440,14 @@ def seed(app: DemoApp) -> None:
                 "consents", person_id=pid, kind="shared_meals", granted=1, wording_version="demo"
             )
         saturday = today + dt.timedelta(days=(5 - today.weekday()) % 7)
+        # the two demo people are linked, as a pair that was sharing weekends would be
+        link_id = links.record_migrated(db, people[0].id, people[1].id)
         shared_id = db.insert(
             "shared_menus",
             segment_start=saturday.isoformat(),
             segment_end=(saturday + dt.timedelta(days=1)).isoformat(),
             model_used="demo-fake",
+            link_id=link_id,
         )
         for person, menu_id in zip(people, menu_ids, strict=True):
             db.insert(

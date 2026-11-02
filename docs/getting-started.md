@@ -10,6 +10,10 @@ In Telegram, open the verified `@BotFather` account and send `/newbot`. Choose a
 
 For a second person, run `uv run tiffin pair partner` and give the code to Sam. Each person then uses their own Telegram chat. Shared weekends require both people's agreement through `/consent`.
 
+Joining and linking are two separate steps. `tiffin pair partner` only lets a second person use their own Telegram chat and account. Until you are **linked**, every weekend menu is your own. To link, one of you sends `/link new` (or uses More on the page) and gives the code to the other, who sends `/link` with that code or types it into their own page. Codes have eight characters, work once, run out after 48 hours, and five wrong tries in an hour stop further guesses. Once linked, each of you still says yes to sharing weekend menus with `/consent`; linked people see only the plates and macros of dishes they cook together, never the other's targets, weight, logs, notes or avoid list. Either of you can unlink at any time, at once, without the other's agreement (`/link unlink`, or More): a weekend already built stays as two ordinary menus, later weekends are built apart, the open joint shopping list is closed and each of you gets your own copy of its lines, and the other person is told in neutral words. What the other person has already seen cannot be taken back. A Tiffin install holds two people at most.
+
+If you are moving an existing pair into a new install, `tiffin.links.record_migrated(db, owner_id, partner_id)` records them as linked (method `migrated`) without asking either again and without writing any consent rows.
+
 ## Choose a model
 
 The wizard can configure Claude CLI, Anthropic, OpenAI, an OpenAI-compatible endpoint or no model. API keys go in the secrets directory, never in `tiffin.toml`. Each person reviews `/consent` before their data is sent to the chosen provider. See [models](models.md) for endpoints and cost controls. Run `uv run tiffin connect model` to change the provider later; a provider change requires fresh consent.

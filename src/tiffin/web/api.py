@@ -7,6 +7,7 @@ from . import (
     api_choices,
     api_daily,
     api_library,
+    api_link,
     api_manual,
     api_menu,
     api_preferences,
@@ -28,6 +29,7 @@ for area in (
     api_shopping,
     api_daily,
     api_library,
+    api_link,
     api_manual,
 ):
     router.include_router(area.router)
