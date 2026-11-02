@@ -9,6 +9,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -54,6 +55,38 @@ def _lock_held(path: Path) -> bool:
     except OSError:
         return True
     return False
+
+
+_CONTAINER_MARKERS = ("/.dockerenv", "/run/.containerenv")
+_CGROUP_WORDS = ("docker", "kubepods", "containerd", "libpod", "podman")
+
+
+def container_runtime(
+    environ: Mapping[str, str] | None = None,
+    exists: Callable[[str], bool] = os.path.exists,
+    read_cgroup: Callable[[], str] | None = None,
+) -> str | None:
+    """The container runtime this process seems to run in, or None.
+
+    None means "no sign of one", not "certainly none": a runtime that leaves no marker
+    (and no `TIFFIN_CONTAINER` variable) cannot be told from a bare machine, and the report
+    says so rather than guess. Only Linux is looked at.
+    """
+    env = os.environ if environ is None else environ
+    declared = env.get("TIFFIN_CONTAINER", "").strip()
+    if declared and declared not in ("0", "false", "no"):
+        return declared if declared not in ("1", "true", "yes") else "container"
+    if sys.platform != "linux" and read_cgroup is None:
+        return None
+    for marker in _CONTAINER_MARKERS:
+        if exists(marker):
+            return "podman" if "containerenv" in marker else "docker"
+    try:
+        text = read_cgroup() if read_cgroup else Path("/proc/1/cgroup").read_text(encoding="utf-8")
+    except OSError:
+        return None
+    lowered = text.lower()
+    return next((w for w in _CGROUP_WORDS if w in lowered), None)
 
 
 def _service_running() -> bool:
@@ -221,18 +254,35 @@ def run_checks(app: App, *, online: bool = True) -> list[Check]:
             else "no healthy locked poller; start tiffin run or inspect its logs",
         )
     )
-    service = paths.state / "service.json"
-    installed = service.is_file()
-    service_running = installed and _service_running() and healthy_poller
-    checks.append(
-        Check(
-            "service",
-            "ok" if service_running else "warn",
-            "installed and running"
-            if service_running
-            else "not running as a setup-installed service; run tiffin init or tiffin run",
+    runtime = container_runtime()
+    if runtime is not None:
+        # inside a container the runtime is the supervisor: there is no service for setup to
+        # install, and asking systemd or launchd from in here would only ever say no
+        checks.append(
+            Check(
+                "service",
+                "ok" if healthy_poller else "warn",
+                f"running in a {runtime} container; its restart policy is the supervisor"
+                if healthy_poller
+                else f"in a {runtime} container, but no healthy locked poller; read the "
+                "container's logs",
+            )
         )
-    )
+    else:
+        service = paths.state / "service.json"
+        installed = service.is_file()
+        service_running = installed and _service_running() and healthy_poller
+        checks.append(
+            Check(
+                "service",
+                "ok" if service_running else "warn",
+                "installed and running"
+                if service_running
+                else "no setup-installed service found. If a container runtime or another "
+                "supervisor starts tiffin, this report cannot tell; check it there. "
+                "Otherwise run tiffin init or tiffin run",
+            )
+        )
     last_path = paths.state / "backup_last.json"
     if last_path.exists():
         try:

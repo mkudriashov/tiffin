@@ -34,6 +34,12 @@ def configured_provider(
         legacy = config.section("models")
         scripts = Path(sys.executable).parent
         mcp_exe = scripts / ("tiffin-mcp.exe" if os.name == "nt" else "tiffin-mcp")
+        child = dict(os.environ)
+        token = secrets.environ.get("TIFFIN_CLAUDE_OAUTH_TOKEN", "").strip()
+        if token and "CLAUDE_CODE_OAUTH_TOKEN" not in child:
+            # the subscription token of a machine with no interactive login; child_env passes
+            # this one variable through and nothing else of Claude Code's
+            child["CLAUDE_CODE_OAUTH_TOKEN"] = token
         return ClaudeBackend(
             resolve_exe(str(legacy.get("claude_exe", "claude"))),
             str(model_config.get("model") or legacy.get("claude_model", "opus")),
@@ -42,6 +48,7 @@ def configured_provider(
             mcp_exe=str(mcp_exe) if mcp_exe.exists() else None,
             mcp_env={"TIFFIN_ENV": config.env, "TIFFIN_HOME": str(config.paths.root)},
             task_models=model_config.get("tasks", {}),
+            env=child,
         )
     key = secrets.optional("model_api_key")
     if (

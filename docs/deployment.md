@@ -8,14 +8,16 @@ Set `TIFFIN_HOME` to an absolute directory owned by the service account. By defa
 
 ## Docker
 
-The included `Dockerfile` and `docker-compose.yml` use a persistent named volume and expose no port by default. Run the wizard against the volume before starting the service:
+The `Dockerfile` builds from pinned base images (version and digest) and installs the Claude CLI at a pinned version. The image runs as a non-root user (build argument `TIFFIN_UID`, default 10010; `user:` in compose overrides it), keeps `HOME` and `TMPDIR` under `/data`, writes no bytecode, works with a read-only root filesystem and a tmpfs `/tmp`, and starts `tiffin run` directly. Its health check (`python -m tiffin.healthcheck`) asks the page's own `<web.root_path>/api/health` over loopback, or reads the heartbeat when the page is off.
+
+`docker-compose.yml` is a hardened example: read-only root, all capabilities dropped, `no-new-privileges`, memory, CPU and process limits, log rotation, no published port, and secrets mounted as files. Create `secrets/telegram-token.txt` (and `secrets/claude-oauth-token.txt`, from `claude setup-token`, if the Claude CLI is your model; it is passed to the CLI as `TIFFIN_CLAUDE_OAUTH_TOKEN_FILE`), make them readable by the container user, then run the wizard against the volume and start the service:
 
 ```sh
-docker compose run --rm tiffin uv run --no-sync tiffin init --web-mode off --model-provider none
+docker compose run --rm tiffin tiffin init --web-mode proxy --web-origin https://tiffin.example.com
 docker compose up -d --build
 ```
 
-Supply `TIFFIN_TELEGRAM_TOKEN` in the environment or put the token in `/data/secrets/telegram-token.txt` in the volume. Send the printed pairing code to the bot while init waits. The image does not include Claude CLI; configure an API provider or reachable compatible server for model work. Publish the web port only behind a suitable HTTPS or Tailscale proxy.
+A proxy in another container reaches the page over the compose network, so the volume's `tiffin.toml` needs `host = "0.0.0.0"` and `bind_trusted_network = true` under `[web]`. Do that only when that network is reachable by the proxy alone, and never publish the port. Any secret can also be supplied as a file with `TIFFIN_<NAME>_FILE` (for example `TIFFIN_TELEGRAM_TOKEN_FILE=/run/secrets/telegram_token`). Run one container per data volume and per bot token; stop an old poller on another machine first. Set `hosting.records` and `hosting.web_front` in `tiffin.toml` so the consent text names the machine and anything the page passes through. Everything above has been checked as text only; build and start it on a Linux host before relying on it.
 
 ## Backups and upgrades
 

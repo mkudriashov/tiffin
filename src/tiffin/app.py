@@ -10,6 +10,7 @@ from . import __version__, log
 from .clock import DEFAULT_CLOCK, Clock
 from .config import Config, load
 from .db import Db
+from .envfile import with_file_values
 from .http import Transport, urllib_transport
 from .persons import PersonRegistry
 from .secrets import Secrets
@@ -76,7 +77,10 @@ class App:
         config = load(env, environ=environ)
         actual_clock = Clock(str(config.get("env.tz"))) if clock is DEFAULT_CLOCK else clock
         return cls(
-            config, Secrets(config.paths.secrets, environ), clock=actual_clock, transport=transport
+            config,
+            Secrets(config.paths.secrets, with_file_values(environ)),
+            clock=actual_clock,
+            transport=transport,
         )
 
     # -- factories (one Db per thread) -----------------------------------------------------

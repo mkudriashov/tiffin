@@ -1,11 +1,56 @@
+# A hardened example. Put the Telegram bot token (and, for the Claude CLI on a server, the output
+# of `claude setup-token`) in ./secrets/, mode 0600, then:
+#   docker compose run --rm tiffin tiffin init --web-mode proxy --web-origin https://tiffin.example.com
+#   docker compose up -d --build
+# The container's user (10010 here) must be able to read the secret files: `chown 10010 secrets/*`
+# or mode 0440 with a shared group. With an API provider, drop the claude_oauth_token lines.
+#
+# The data volume's tiffin.toml must say, for a proxy in another container:
+#   [web]
+#   host = "0.0.0.0"
+#   bind_trusted_network = true
+# and the page's port is reachable only on the `app` network, never published.
 services:
   tiffin:
     build: .
+    image: tiffin:local
     restart: unless-stopped
+    user: "10010:10010" # match the image's TIFFIN_UID build argument
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 1g
+    cpus: 1.0
+    pids_limit: 200
     environment:
       TIFFIN_HOME: /data
-      TIFFIN_TELEGRAM_TOKEN: ${TIFFIN_TELEGRAM_TOKEN:-}
+      TIFFIN_TELEGRAM_TOKEN_FILE: /run/secrets/telegram_token
+      TIFFIN_CLAUDE_OAUTH_TOKEN_FILE: /run/secrets/claude_oauth_token
+    secrets:
+      - telegram_token
+      - claude_oauth_token
     volumes:
       - tiffin-data:/data
+    networks:
+      - app # share this network with your reverse proxy; nothing is published to the host
+      - egress # Telegram, intervals.icu and the model provider
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+networks:
+  app:
+    internal: true
+  egress: {}
+secrets:
+  telegram_token:
+    file: ./secrets/telegram-token.txt
+  claude_oauth_token:
+    file: ./secrets/claude-oauth-token.txt
 volumes:
   tiffin-data:

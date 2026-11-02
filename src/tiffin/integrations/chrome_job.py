@@ -96,6 +96,8 @@ def powershell_chrome_probe(
         "Get-CimInstance Win32_Process -Filter \"Name='chrome.exe'\" "
         "| Select-Object -ExpandProperty CommandLine"
     )
+    if runner is subprocess.run and sys.platform != "win32":
+        return True  # no PowerShell to ask: the browser session checks itself
     try:
         proc = runner(
             ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],

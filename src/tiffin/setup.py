@@ -17,6 +17,7 @@ from urllib.parse import quote, urlsplit
 from .app import App
 from .clock import Clock, detected_timezone
 from .config import Budget, default_home, load, update_override
+from .envfile import with_file_values
 from .errors import ConfigError, TelegramConflict
 from .http import get
 from .model.provider import configured_provider
@@ -105,7 +106,11 @@ def _choice(label: str, value: str, choices: tuple[str, ...], *, non_interactive
 
 def _app(home: Path, env: str | None = None) -> App:
     config = load(env, root=home)
-    return App(config, Secrets(config.paths.secrets), clock=Clock(str(config.get("env.tz"))))
+    return App(
+        config,
+        Secrets(config.paths.secrets, with_file_values()),
+        clock=Clock(str(config.get("env.tz"))),
+    )
 
 
 def _telegram(home: Path, args: argparse.Namespace) -> None:
