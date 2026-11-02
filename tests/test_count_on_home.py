@@ -61,7 +61,9 @@ def test_on_a_later_day_counts_the_pack_an_earlier_day_opened(week, count_on_hom
     # Wednesday: Monday's pack has the 180 g left, so nothing is bought and the list says why
     wed = _menu_starting(db, pid, WED)
     assert shopping.build(db, wed) == []
-    assert "chicken" in {i.code for i in shopping.at_home(db, shopping.segment_list_id(db, wed))}
+    list_id = shopping.segment_list_id(db, wed)
+    assert list_id is not None
+    assert "chicken" in {i.code for i in shopping.at_home(db, list_id)}
     # Thursday: 140 g left of it, 40 g more to buy, which is one more pack
     got = _chicken(shopping.build(db, _menu_starting(db, pid, THU)))
     assert got.credit_g == 140.0 and got.grams_needed == pytest.approx(got.grams_total - 140.0)
