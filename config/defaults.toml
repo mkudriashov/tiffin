@@ -43,6 +43,14 @@ weight = "kg"
 height = "cm"
 currency = "GBP"
 
+[hosting]
+# Said to each person in the consent text, so it must be true of the machine running tiffin.
+# records: where the records are held, e.g. "a rented server in the EU, run by Sam".
+# web_front: anything the web page passes through on its way to a browser, e.g.
+# "Cloudflare". Empty if nothing does.
+records = "this computer"
+web_front = ""
+
 [household]
 partner_expected = false
 

@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from .telegram.poller import Inbound
 
 FLOW = "onboarding"
-PROCESSING_CONSENT_VERSION = "v3"
+PROCESSING_CONSENT_VERSION = "v4"
 DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 KINDS = [
     "climb",
@@ -768,13 +768,24 @@ def consent_text(config: Config | None = None) -> str:
         if config
         else "the configured server",
     }.get(provider, "Anthropic's Claude CLI")
+    records = str(config.get("hosting.records", "this computer")) if config else "this computer"
+    front = str(config.get("hosting.web_front", "")).strip() if config else ""
+    web_on = bool(config.get("web.enabled", True)) if config else False
+    passes = (
+        f" The web page passes through {front} on its way to your browser."
+        if front and web_on
+        else ""
+    )
     return (
-        "What leaves this computer, and where it goes. "
-        "Tiffin sends your numbers, foods and messages to "
+        "Where your information goes. "
+        f"Your tiffin records are held on {records}. Telegram carries your chats with the "
+        "bot."
+        + passes
+        + " Tiffin sends your numbers, foods and messages to "
         + destination
         + " to write menus, estimate off-plan food and answer questions. "
-        "Your tiffin records stay on this computer. If you decline, those model tasks are "
-        "manual; the day's numbers still work. You can change this with /consent. Agree?"
+        "Nothing else leaves. If you decline, those model tasks are manual; the day's "
+        "numbers still work. You can change this with /consent. Agree?"
     )
 
 

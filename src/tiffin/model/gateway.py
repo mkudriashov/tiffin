@@ -95,7 +95,9 @@ def consent_granted(
     if not model_kind:
         return True
     wording = str(row["wording_version"])
-    return wording == f"v3:{provider}" or (
+    # v3 grants were given under the older wording and stay honoured; v4 is the wording that
+    # names the machine and the services in between. Neither is re-asked.
+    return wording in (f"v3:{provider}", f"v4:{provider}") or (
         provider == "claude-cli" and wording in ("1", "v1", "v2")
     )
 

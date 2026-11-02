@@ -279,6 +279,21 @@ def _validate(data: Mapping[str, Any]) -> None:
         value = ops.get(key)
         if not isinstance(value, int) or isinstance(value, bool) or value < 1:
             raise ConfigError(f"ops.{key} must be a positive integer")
+    hosting = data.get("hosting", {})
+    if not isinstance(hosting, Mapping):
+        raise ConfigError("[hosting] must be a table in tiffin.toml")
+    for key, required in (("records", True), ("web_front", False)):
+        value = hosting.get(key)
+        if (
+            not isinstance(value, str)
+            or (required and not value.strip())
+            or len(value) > 120
+            or any(c in value for c in "<>&\n\r")
+        ):
+            raise ConfigError(
+                f"hosting.{key} must be plain text of at most 120 characters"
+                + (" and not empty" if required else "")
+            )
     units = data.get("units", {})
     if (
         not isinstance(units, Mapping)

@@ -19,6 +19,10 @@ SECTIONS = {
     "telegram": "Polling timeouts, message limits and owner alert delivery.",
     "web": "Loopback web listener, URL and identity mode. See [web access](web-access.md).",
     "units": "Display units for body measurements and currency for manual product prices.",
+    "hosting": (
+        "Plain words for the consent text about the machine running tiffin, so what people "
+        "agree to is true of it."
+    ),
     "household": "Whether a second person is expected during onboarding.",
     "chrome": "Optional Claude CLI browser profile and shop-reader switches.",
     "shop": (
@@ -65,6 +69,14 @@ SPECIAL = {
     "web.signed_out_redirect": (
         "Where a signed-out visitor to the page root is sent: a path beginning with `/` or an "
         "`https://` URL. Empty shows the sign-in instructions."
+    ),
+    "hosting.records": (
+        'Where the records are held, finishing "Your tiffin records are held on ..."; for '
+        "example `a rented server in the EU, run by Sam`."
+    ),
+    "hosting.web_front": (
+        "Anything the web page passes through on its way to a browser, such as `Cloudflare`; "
+        "empty if nothing does. Named in the consent text."
     ),
     "web.root_path": (
         "URL mount path with ordinary segments; use an empty string when served at `/`."

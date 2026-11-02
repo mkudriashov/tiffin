@@ -63,6 +63,15 @@ Display units for body measurements and currency for manual product prices.
 | `units.height` | `"cm"` | Height. |
 | `units.currency` | `"GBP"` | ISO currency code for prices entered by hand. |
 
+## hosting
+
+Plain words for the consent text about the machine running tiffin, so what people agree to is true of it.
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `hosting.records` | `"this computer"` | Where the records are held, finishing "Your tiffin records are held on ..."; for example `a rented server in the EU, run by Sam`. |
+| `hosting.web_front` | `""` | Anything the web page passes through on its way to a browser, such as `Cloudflare`; empty if nothing does. Named in the consent text. |
+
 ## household
 
 Whether a second person is expected during onboarding.
