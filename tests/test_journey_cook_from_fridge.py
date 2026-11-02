@@ -17,6 +17,8 @@ from __future__ import annotations
 import datetime as dt
 import json
 
+import pytest
+
 from tiffin.clock import TZ
 from tiffin.food import menu as menu_mod
 from tiffin.food import shopping
@@ -83,6 +85,8 @@ def test_01_ticking_chicken_in_the_shop_shows_on_the_list_when_reread(world) -> 
 
 
 # ---------------------------------------------------------------- 2. bought, then it changed
+# Pinned the credit: now runs with `shopping.count_on_home` on, because the default buys everything.
+@pytest.mark.usefixtures("count_on_home")
 def test_02_a_menu_changed_after_the_shop_does_not_send_him_back_for_the_same_chicken(
     world,  # noqa: F811
 ) -> None:
@@ -146,6 +150,8 @@ def test_03_potatoes_the_shop_did_not_have_are_not_counted_as_at_home_next_week(
 
 
 # ---------------------------------------------------------------- 4. half a bag of rice
+# Pinned the credit: now runs with `shopping.count_on_home` on, because the default buys everything.
+@pytest.mark.usefixtures("count_on_home")
 def test_04_a_half_used_bag_of_rice_is_not_bought_again(world) -> None:  # noqa: F811
     """A person who reports the remaining rice does not buy another bag."""
     pid, db, tg, _gw, say, tap, _run = world
@@ -248,6 +254,8 @@ def _chicken_two_weeks(world) -> tuple:  # noqa: F811
     return pid, db, say
 
 
+# Pinned the credit: now runs with `shopping.count_on_home` on, because the default buys everything.
+@pytest.mark.usefixtures("count_on_home")
 def test_07_the_list_reread_in_the_shop_says_it_is_counting_on_chicken_at_home(
     world,  # noqa: F811
 ) -> None:
@@ -269,6 +277,8 @@ def test_07_the_list_reread_in_the_shop_says_it_is_counting_on_chicken_at_home(
     )
 
 
+# Pinned the credit: now runs with `shopping.count_on_home` on, because the default buys everything.
+@pytest.mark.usefixtures("count_on_home")
 def test_08_the_web_list_says_what_it_is_counting_on_being_at_home(world) -> None:  # noqa: F811
     """Same Sunday, the list open on the tailnet page on his phone. The page is where the long
     list is read, and it should say the same thing about the fridge that the bot does."""
@@ -341,6 +351,8 @@ def test_10_boxes_frozen_for_days_owner_was_away_are_counted_before_cooking_more
 
 
 # ---------------------------------------------------------------- 11. the shared weekend bag
+# Pinned the credit: now runs with `shopping.count_on_home` on, because the default buys everything.
+@pytest.mark.usefixtures("count_on_home")
 def test_11_the_weekend_list_counts_both_halves_of_the_potatoes_at_home(world) -> None:  # noqa: F811
     """Both people report 400 g of potatoes at home. The next joint weekend shop credits both
     shares against its 1600 g need."""

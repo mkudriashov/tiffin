@@ -13,6 +13,8 @@ from __future__ import annotations
 import datetime as dt
 import json
 
+import pytest
+
 from tiffin.clock import isoday
 from tiffin.food import menu, packs, shopping
 from tiffin.model import prompts
@@ -78,6 +80,8 @@ def test_a_build_is_told_when_its_open_pack_is_in_the_freezer(week) -> None:  # 
 
 
 # ---------------------------------------------------------------- 1. "I have it"
+# Pinned the credit: now runs with `shopping.count_on_home` on, because the default buys everything.
+@pytest.mark.usefixtures("count_on_home")
 def test_a_days_list_uses_an_earlier_pack_and_partner_can_mark_a_line_at_home(page) -> None:  # noqa: F811
     client, db, partners, _his, r = page
     _daily(db, partners, r)

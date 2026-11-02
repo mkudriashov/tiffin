@@ -343,6 +343,8 @@ def test_04_in_the_shop_on_saturday_partner_opens_the_list_owner_is_ticking(hous
 
 
 # ---------------------------------------------------------------- 5. whose rice
+# Pinned the credit: now runs with `shopping.count_on_home` on, because the default buys everything.
+@pytest.mark.usefixtures("count_on_home")
 def test_05_the_weekend_list_does_not_forget_partner_own_rice(house) -> None:
     """Sunday 20 Sep, 11:00. Her Mon-Wed list from last Sunday left 700 g of her rice in the
     cupboard; the weekend ate out of the owner's rice, not hers. She opens /shopping for the

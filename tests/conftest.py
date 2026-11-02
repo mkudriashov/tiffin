@@ -25,6 +25,29 @@ FROZEN_AT = dt.datetime(2026, 9, 7, 20, 30, tzinfo=TZ)
 
 
 @pytest.fixture(autouse=True)
+def shopping_counts_nothing_at_home_by_default() -> Iterator[None]:
+    """The shopping setting is process-wide; every test starts from the default (off)."""
+    from tiffin.food import shopping
+
+    shopping.set_count_on_home(False)
+    yield
+    shopping.set_count_on_home(False)
+
+
+@pytest.fixture
+def count_on_home(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Turn `shopping.count_on_home` on for one test.
+
+    An `App` applies its config on construction, so the setting is held on for the test (the
+    setter ignores the default config) and reset afterwards by the autouse fixture above.
+    """
+    from tiffin.food import shopping
+
+    shopping.set_count_on_home(True)
+    monkeypatch.setattr(shopping, "set_count_on_home", lambda value: None)
+
+
+@pytest.fixture(autouse=True)
 def nothing_real_leaves_the_box(monkeypatch: pytest.MonkeyPatch) -> None:
     """Block real browser and model subprocesses during fixture tests.
 

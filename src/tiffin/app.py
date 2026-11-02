@@ -45,6 +45,9 @@ class App:
             else clock
         )
         self.transport = transport
+        from .food import shopping  # noqa: PLC0415 (food imports the db layer)
+
+        shopping.set_count_on_home(bool(config.get("shopping.count_on_home", False)))
         self._api: TelegramApi | None = None
         self.gateway_factory = gateway_factory
         self._provider: Backend | None = None

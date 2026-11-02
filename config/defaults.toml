@@ -43,6 +43,12 @@ weight = "kg"
 height = "cm"
 currency = "GBP"
 
+[shopping]
+# false: every list buys everything its menu eats, and counts on nothing already at home, so
+# you check your cupboards when you shop. true: a list buys less for packs opened on earlier
+# days of the same shop window and for stock someone has reported.
+count_on_home = false
+
 [hosting]
 # Said to each person in the consent text, so it must be true of the machine running tiffin.
 # records: where the records are held, e.g. "a rented server in the EU, run by Sam".

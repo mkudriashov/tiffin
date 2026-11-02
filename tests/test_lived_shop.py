@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import datetime as dt
 
+import pytest
+
 from tiffin.db import Db
 from tiffin.food import batch as batch_mod
 from tiffin.food import products, shopping
@@ -199,6 +201,8 @@ def test_04_the_list_is_still_ticked_when_the_phone_comes_back_out(world) -> Non
 # -- what the list does not say ---------------------------------------------------------------
 
 
+# Pinned the credit: now runs with `shopping.count_on_home` on, because the default buys everything.
+@pytest.mark.usefixtures("count_on_home")
 def test_05_a_list_buying_less_than_the_week_needs_says_what_is_already_in(fixture_db, two_persons):
     """A list buying fewer packs because the person reported stock names that credit."""
     db, pid = fixture_db, two_persons["owner"]

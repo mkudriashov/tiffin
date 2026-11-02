@@ -1,8 +1,10 @@
 """Calculate menu shopping needs and render pack-based lists in aisle order.
 
-Lists include every ingredient unless the person marks it as always at home. A pack opened by
-the plan earlier in the same shop window covers later days before another pack is bought.
-Surplus from an earlier window is counted only when the person has said they have it.
+Lists include every ingredient unless the person marks it as always at home. By default
+(`shopping.count_on_home = false`) a list buys everything its menu eats and counts on nothing
+already at home. With the setting on, a pack opened by the plan earlier in the same shop window
+covers later days before another pack is bought, and surplus from an earlier window is counted
+only when the person has said they have it.
 """
 
 from __future__ import annotations
@@ -22,6 +24,22 @@ from .solver import whole_units
 
 SLACK_TENTHS = 10  # 1 g: an overshoot this small does not earn another pack
 WEEKEND = (5, 6)
+#: whether a list counts on food at home from earlier lists - the planned surplus of a pack opened
+#: on an earlier day of the shop window, and the stock a person reported - and buys that much less.
+#: Off (the default, `shopping.count_on_home`): every list buys what its menu eats, so a person
+#: checks what they have at home before shopping. The `leftovers` rows are still written and
+#: still read - the menu builder is told what to use up first - but no list buys less for them.
+#: A person's own "always at home" list still keeps a food off. The app sets this from config at
+#: start-up (`set_count_on_home`).
+COUNT_ON_HOME = False
+
+
+def set_count_on_home(value: bool) -> None:
+    """Set whether lists count on food at home (config `shopping.count_on_home`)."""
+    global COUNT_ON_HOME  # noqa: PLW0603 (one setting for the whole process, as configured)
+    COUNT_ON_HOME = bool(value)
+
+
 _CONTAINER_WORDS = frozenset(
     {
         "pack",
@@ -216,7 +234,8 @@ def _items(
     for code, need in needs.items():
         if need.pantry:
             continue
-        credit = max(0.0, float(credits.get(code, 0.0)))
+        # the one place a credit buys less: off, every list buys what its menu eats
+        credit = max(0.0, float(credits.get(code, 0.0))) if COUNT_ON_HOME else 0.0
         needed = round(need.grams - credit, 1)
         product = (shop or {}).get(code)
         pack_g = float(product.pack_g) if product is not None and product.pack_g else need.pack_g
@@ -653,7 +672,10 @@ def _credits_for(
     *,
     skip_menu_id: int | None = None,
 ) -> dict[str, float]:
-    """Credit packs opened on earlier days of this shop, plus stock the person reported."""
+    """Credit packs opened on earlier days of this shop, plus stock the person reported.
+    Nothing while `COUNT_ON_HOME` is off: every list buys what its menu eats."""
+    if not COUNT_ON_HOME:
+        return {}
     from . import packs  # noqa: PLC0415 (packs imports this module)
 
     window = packs.window_of(db, person_id, first)
@@ -692,7 +714,7 @@ def build(
     # segment": what is at home for it is what that list's ticks say was bought, not the naive
     # planned surplus `current_leftovers` would otherwise hand back
     prior = superseded_list(db, person_id, menu_id)
-    if prior is not None:
+    if prior is not None and COUNT_ON_HOME:
         credit = _apply_supersession(db, credit, prior, person_id, needs, use_clock.today_local())
     items = _items(needs, credit, aisles, _shop_for(db, person_id, needs, retailers, credit))
     written = _write(
@@ -845,8 +867,15 @@ def joint_once(
         )
     }
     on = today or use_clock.today_local()
+    # nothing counted on at home (COUNT_ON_HOME): and none paid back to an owner either, or the
+    # leftovers would say an owner's stock was used up by a list that bought it all again
     owner_leftovers = {
-        pid: current_leftovers(db, pid, on, exclude_menus=ours, only_stated=True) for pid in owners
+        pid: (
+            current_leftovers(db, pid, on, exclude_menus=ours, only_stated=True)
+            if COUNT_ON_HOME
+            else {}
+        )
+        for pid in owners
     }
     written = joint_weekend(
         db, menu_ids, retailers=retailers, clock=use_clock, owner_leftovers=owner_leftovers
@@ -902,7 +931,8 @@ def joint_weekend(
     if owner_leftovers is None:
         on = clock.today_local() if clock else db.clock.today_local()
         owner_leftovers = {
-            owner: current_leftovers(db, owner, on, only_stated=True) for owner in owners
+            owner: current_leftovers(db, owner, on, only_stated=True) if COUNT_ON_HOME else {}
+            for owner in owners
         }
     credits: dict[str, float] = {}
     for owner in owners:

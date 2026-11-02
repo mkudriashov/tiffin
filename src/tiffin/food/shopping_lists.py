@@ -385,7 +385,8 @@ def range_list(
     """One list for the days from today to Friday, over the plates in force on each - built
     again whenever they change (a meal skipped, a dish swapped, a day rebuilt), with what was
     ticked carried across by food: a tick is a fact about the trolley. None when no day ahead
-    has a menu. Pack credit is limited to earlier days of this shop window; the range writes no
+    has a menu. With `COUNT_ON_HOME` on, pack credit is limited to earlier days of this shop
+    window; the range writes no
     leftovers because each day's own list has already written its own."""
     from . import menu as menu_mod  # noqa: PLC0415 (menu imports this module)
 

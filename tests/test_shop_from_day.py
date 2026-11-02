@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import datetime as dt
 
+import pytest
+
 from tiffin.db import Db
 from tiffin.food import shopping
 from tiffin.web import queries
@@ -29,6 +31,8 @@ def _week(db: Db, pid: int) -> tuple[int, int]:
     return seed_menu(db, pid, MONDAY, 5, {"dinner": (dish, 1.0)}), eggs
 
 
+# Pinned the credit: now runs with `shopping.count_on_home` on, because the default buys everything.
+@pytest.mark.usefixtures("count_on_home")
 def test_the_list_again_from_tuesday_buys_nothing_for_monday(
     fixture_db: Db, two_persons, frozen_clock: FrozenClock
 ) -> None:

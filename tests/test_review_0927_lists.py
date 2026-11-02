@@ -6,6 +6,8 @@ import datetime as dt
 import json
 from pathlib import Path
 
+import pytest
+
 from tiffin.db import Db
 from tiffin.food import products, shopping
 from tiffin.model import tools
@@ -20,6 +22,8 @@ SATURDAY = dt.date(2026, 10, 3)
 SUNDAY = dt.date(2026, 10, 4)
 
 
+# Pinned the credit: now runs with `shopping.count_on_home` on, because the default buys everything.
+@pytest.mark.usefixtures("count_on_home")
 def test_a_food_counted_as_at_home_is_kept_on_the_list_and_said(
     fixture_db: Db, two_persons
 ) -> None:
@@ -56,6 +60,8 @@ def test_a_food_counted_as_at_home_is_kept_on_the_list_and_said(
     assert page["at_home"] == [{"name": "Eggs, whole", "grams": 120.0, "aisle": "dairy"}]
 
 
+# Pinned the credit: now runs with `shopping.count_on_home` on, because the default buys everything.
+@pytest.mark.usefixtures("count_on_home")
 def test_a_list_with_everything_at_home_is_built_once(fixture_db: Db, two_persons) -> None:
     """`build_once` asked "is there a list with something to buy", so a list whose every food
     was at home was built again on every ask, each build crediting what the last only planned."""
@@ -76,6 +82,8 @@ def test_a_list_with_everything_at_home_is_built_once(fixture_db: Db, two_person
     assert db.scalar("SELECT COUNT(*) FROM shopping_lists WHERE menu_id = ?", (mid,)) == 1
 
 
+# Pinned the credit: now runs with `shopping.count_on_home` on, because the default buys everything.
+@pytest.mark.usefixtures("count_on_home")
 def test_a_replacement_menu_still_counts_what_the_old_list_had_at_home(
     fixture_db: Db, two_persons, frozen_clock: FrozenClock
 ) -> None:
@@ -236,6 +244,8 @@ def test_a_list_first_built_from_chat_uses_the_shops_within_reach(
     assert shop == "sainsburys"
 
 
+# Pinned the credit: now runs with `shopping.count_on_home` on, because the default buys everything.
+@pytest.mark.usefixtures("count_on_home")
 def test_a_list_with_nothing_to_buy_still_says_what_should_be_at_home(
     fixture_db: Db, two_persons, frozen_clock: FrozenClock, config
 ) -> None:

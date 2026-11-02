@@ -19,6 +19,10 @@ SECTIONS = {
     "telegram": "Polling timeouts, message limits and owner alert delivery.",
     "web": "Loopback web listener, URL and identity mode. See [web access](web-access.md).",
     "units": "Display units for body measurements and currency for manual product prices.",
+    "shopping": (
+        "Whether a shopping list counts on food already at home. Off by default: every list "
+        "buys everything its menu eats."
+    ),
     "hosting": (
         "Plain words for the consent text about the machine running tiffin, so what people "
         "agree to is true of it."
@@ -53,6 +57,12 @@ SECTIONS = {
 }
 
 SPECIAL = {
+    "shopping.count_on_home": (
+        "`false`: every shopping list buys everything its menu eats and counts on nothing "
+        "already at home, so you check your cupboards while shopping. `true`: a list buys less "
+        "for a pack opened on an earlier day of the same shop window and for stock someone has "
+        'reported. A person\'s own "always at home" list keeps a food off either way.'
+    ),
     "web.identity_mode": (
         "`telegram` (default) uses a one-use bot link; `header` trusts Tailscale Serve and needs "
         "`trusted_header_proxy`; "

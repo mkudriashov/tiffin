@@ -63,6 +63,14 @@ Display units for body measurements and currency for manual product prices.
 | `units.height` | `"cm"` | Height. |
 | `units.currency` | `"GBP"` | ISO currency code for prices entered by hand. |
 
+## shopping
+
+Whether a shopping list counts on food already at home. Off by default: every list buys everything its menu eats.
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `shopping.count_on_home` | `false` | `false`: every shopping list buys everything its menu eats and counts on nothing already at home, so you check your cupboards while shopping. `true`: a list buys less for a pack opened on an earlier day of the same shop window and for stock someone has reported. A person's own "always at home" list keeps a food off either way. |
+
 ## hosting
 
 Plain words for the consent text about the machine running tiffin, so what people agree to is true of it.

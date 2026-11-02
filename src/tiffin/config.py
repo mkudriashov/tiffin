@@ -304,6 +304,11 @@ def _validate(data: Mapping[str, Any]) -> None:
         or not units["currency"].isalpha()
     ):
         raise ConfigError("units must choose kg/lb, cm/in and a three-letter currency")
+    shopping = data.get("shopping", {})
+    if not isinstance(shopping, Mapping) or not isinstance(
+        shopping.get("count_on_home", False), bool
+    ):
+        raise ConfigError("shopping.count_on_home must be true or false")
     chrome = data.get("chrome", {})
     if not isinstance(chrome, Mapping):
         raise ConfigError("[chrome] must be a table in tiffin.toml")

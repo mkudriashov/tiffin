@@ -45,6 +45,8 @@ def _grams(data: dict, name: str) -> float:
 
 
 # ---------------------------------------------------------------- today to Friday
+# Pinned the credit: now runs with `shopping.count_on_home` on, because the default buys everything.
+@pytest.mark.usefixtures("count_on_home")
 def test_partner_list_runs_from_today_to_friday(page) -> None:  # noqa: F811
     from tiffin.food import menu
 

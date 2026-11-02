@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import datetime as dt
 
+import pytest
+
 from tiffin.clock import isoday
 from tiffin.db import Db
 from tiffin.food import shopping
@@ -106,6 +108,8 @@ def test_pack_short() -> None:
     assert shopping.pack_short("", 250) == "250 g"
 
 
+# Pinned the credit: now runs with `shopping.count_on_home` on, because the default buys everything.
+@pytest.mark.usefixtures("count_on_home")
 def test_build_rounds_credits_and_orders(fixture_db: Db, two_persons) -> None:
     db = fixture_db
     pid = two_persons["owner"]
