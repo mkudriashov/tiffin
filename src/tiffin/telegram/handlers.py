@@ -269,6 +269,7 @@ HELP_GROUPS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "You",
         (
             ("name", "what I call you: /name Sam"),
+            ("link", "connect to a partner: /link new makes a code, /link CODE enters theirs"),
             ("set", "change any onboarding answer: /set, or /set evening 21:00"),
             ("consent", "whether the configured model may process your data"),
             ("questions", "what you want from Tiffin, a question at a time"),

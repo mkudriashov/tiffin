@@ -9,6 +9,7 @@ from __future__ import annotations
 import datetime as dt
 from dataclasses import dataclass, field
 
+from .. import links
 from ..clock import isoday
 from ..db import Db
 from ..errors import NothingToBuild
@@ -172,7 +173,12 @@ def flip(
     """Set the switch and, while this weekend can still change, put that version in force."""
     if to not in shared.MODES:
         raise ValueError(f"the weekend is {TOGETHER} or {APART}, not {to}")
-    if to == TOGETHER and not shared.everyone_agreed(db):
+    if to == TOGETHER and not links.is_linked(db):
+        raise NothingToBuild(
+            "Cooking together needs you linked to your partner first: send /link to the bot, or "
+            "use More on this page."
+        )
+    if to == TOGETHER and not shared.linked_and_both_consented(db):
         raise NothingToBuild(
             "Cooking together needs you both to share weekend menus first: send /consent to the "
             "bot and tap Share weekend menus."
@@ -246,7 +252,14 @@ def page(db: Db, person_id: int, today: dt.date, provider: str = "claude-cli") -
         "taste": taste(db, person_id),
         "switch": None,
     }
-    if not shared.everyone_agreed(db):
+    if not shared.linked_and_both_consented(db):
+        # no switch to show: a lone person is told so, a linked pair what is still missing
+        out["note"] = (
+            "Weekend menus are your own."
+            if not links.is_linked(db)
+            else "You are linked. Weekends are cooked together once you have both said yes to "
+            "sharing weekend menus (send /consent to the bot). Until then they are your own."
+        )
         return out
     mode = shared.mode(db)
     built = person_id in versions(db, weekend).of(mode)

@@ -30,6 +30,7 @@ from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from typing import Any
 
+from .. import links
 from .. import targets as targets_mod
 from ..clock import Clock, isoday, local_at, meal_now, parse_day
 from ..db import Db
@@ -1114,6 +1115,9 @@ def put(
                 segment_end=isoday(max(spans)),
                 source_shared_id=old_pair,
                 model_used=None,
+                link_id=db.scalar("SELECT link_id FROM shared_menus WHERE id = ?", (old_pair,))
+                if old_pair is not None
+                else links.active_link_id(db),
             )
             for pid, mid in ((person_id, menu_id), (theirs.person_id, partner_id)):
                 db.insert("shared_menu_members", shared_menu_id=pair, person_id=pid, menu_id=mid)

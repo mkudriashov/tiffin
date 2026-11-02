@@ -395,6 +395,7 @@ STALE = {
     "mains": "3",  # an answer under an old menu: kept again and said, never silence
     "iv": "a:999:0",  # an answer to a question there is not (/questions): the old-tap toast
     "prd": "2020-01-01",  # a period start from an old weekly check: said, nothing recorded
+    "link": "old",  # a button from a /link screen long gone: said, nothing changed
     "web": "",  # an old Open web page button issues a fresh link or explains the sign-in mode
 }
 

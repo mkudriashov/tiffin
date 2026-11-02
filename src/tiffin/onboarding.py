@@ -11,7 +11,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from . import body, targets
+from . import body, links, targets
 from .clock import DEFAULT_CLOCK, Clock, isoday, parse_day
 from .config import Config
 from .db import Db
@@ -1447,8 +1447,8 @@ def install(handlers: Handlers, onboarding: Onboarding) -> None:
             if shared
             else ("Share weekend menus", "k:consent:share:1")
         )
-        partner = h.registry.by_slug("partner")
-        has_partner = partner is not None and partner.chat_id is not None
+        # sharing needs a link first (/link): a lone person is told weekends are their own
+        has_partner = links.partner_of(h.db, person.id) is not None
         rows: list[list[tuple[str, str]]] = [[share_button]] if has_partner else []
         if provider != "none":
             rows.insert(0, [button])
@@ -1458,7 +1458,11 @@ def install(handlers: Handlers, onboarding: Onboarding) -> None:
                 r.esc(consent_text(onboarding.config))
                 + "\n"
                 + state
-                + ("\n" + shared_state if has_partner else ""),
+                + (
+                    "\n" + shared_state
+                    if has_partner
+                    else "\nWeekend menus are your own. /link connects you to a partner."
+                ),
                 kind="consent",
                 max_lines=20,
             ),
@@ -1524,7 +1528,13 @@ def install(handlers: Handlers, onboarding: Onboarding) -> None:
                 "plate is shown to anyone.",
             )
             return "handled"
-        both = shared.everyone_agreed(h.db)
+        if not links.is_linked(h.db):
+            h.outbox.reply(
+                inbound.person,
+                "Noted. Weekend menus are your own until you are linked to a partner: /link.",
+            )
+            return "handled"
+        both = shared.linked_and_both_consented(h.db)
         if not both:
             h.outbox.reply(
                 inbound.person,

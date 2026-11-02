@@ -1,8 +1,8 @@
 """Build paired weekend menus with shared recipes and individual portions.
 
-Both people must consent to shared meals. The model selects dishes from foods both may
-eat; code solves each person's portions against their own targets. Each person retains
-their own menu ledger entries."""
+The two people must be linked (links.py) and both consent to shared meals. The model selects
+dishes from foods both may eat; code solves each person's portions against their own targets.
+Each person retains their own menu ledger entries."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from .. import links
 from ..clock import DEFAULT_CLOCK, Clock, isoday
 from ..db import Db
 from ..energy import Macros
@@ -36,20 +37,30 @@ def consented(db: Db, person_id: int) -> bool:
 
 
 def people(db: Db) -> list[int]:
-    """Everyone with a profile who is not erased, in id order."""
+    """The two linked people who have a profile and are not erased, in id order - nobody while
+    they are not linked."""
+    row = links.active_link(db)
+    if row is None:
+        return []
     return [
         int(r["id"])
         for r in db.all(
-            "SELECT p.id FROM persons p WHERE p.erased_at IS NULL AND EXISTS "
-            "(SELECT 1 FROM profiles f WHERE f.person_id = p.id) ORDER BY p.id"
+            "SELECT p.id FROM persons p WHERE p.erased_at IS NULL AND p.id IN (?, ?) AND EXISTS "
+            "(SELECT 1 FROM profiles f WHERE f.person_id = p.id) ORDER BY p.id",
+            (int(row["a_person"]), int(row["b_person"])),
         )
     ]
 
 
-def everyone_agreed(db: Db) -> bool:
-    """Two people or more, and every one of them has said yes and not since said no."""
-    ids = people(db)
-    return len(ids) >= 2 and all(consented(db, pid) for pid in ids)
+def linked_and_both_consented(db: Db) -> bool:
+    """They are linked (`links.py`), and each has said yes to sharing weekend menus and not since
+    said no. A link alone shares nothing; consent alone, without a link, shares nothing either."""
+    row = links.active_link(db)
+    if row is None:
+        return False
+    ids = [int(row["a_person"]), int(row["b_person"])]
+    live = {int(r["id"]) for r in db.all("SELECT id FROM persons WHERE erased_at IS NULL")}
+    return all(pid in live and consented(db, pid) for pid in ids)
 
 
 def is_weekend(segment: menu.Segment) -> bool:
@@ -85,7 +96,7 @@ def possible(db: Db, segment: menu.Segment, provider: str = "claude-cli") -> boo
     from ..model.gateway import consent_granted  # noqa: PLC0415
     from ..targets import latest_weight, pause_active, profile_on, targets_for  # noqa: PLC0415
 
-    if not is_weekend(segment) or not everyone_agreed(db):
+    if not is_weekend(segment) or not linked_and_both_consented(db):
         return False
     for pid in people(db):
         # The one model call reads both plates, so both grants must cover its provider.
@@ -330,6 +341,7 @@ def _store(
             segment_start=isoday(segment.start),
             segment_end=isoday(segment.end),
             model_used=model_used,
+            link_id=links.active_link_id(db),
         )
         for pid, mid in menu_ids.items():
             db.insert("shared_menu_members", shared_menu_id=shared_id, person_id=pid, menu_id=mid)
@@ -337,8 +349,12 @@ def _store(
 
 
 def pair_of(db: Db, menu_id: int) -> int | None:
+    """The pair this menu is half of - while its link is active. After an unlink the two menus
+    are ordinary ones and this finds nothing."""
     row = db.one("SELECT shared_menu_id FROM shared_menu_members WHERE menu_id = ?", (menu_id,))
-    return None if row is None else int(row["shared_menu_id"])
+    if row is None or not links.pair_open(db, int(row["shared_menu_id"])):
+        return None
+    return int(row["shared_menu_id"])
 
 
 def name_of(db: Db, person_id: int) -> str:
@@ -364,7 +380,7 @@ def partner_plate(
     for, and only while both of them still agree: switching it off hides it at once.
     """
     shared_id = pair_of(db, menu_id)
-    if shared_id is None or not everyone_agreed(db):
+    if shared_id is None or not linked_and_both_consented(db):
         return None
     row = db.one(
         "SELECT sm.person_id, ms.portion_g, ms.portion_multiplier, ms.kcal, ms.protein_g "
@@ -393,9 +409,9 @@ __all__ = [
     "active",
     "build",
     "consented",
-    "everyone_agreed",
     "for_both",
     "is_weekend",
+    "linked_and_both_consented",
     "mode",
     "name_of",
     "pair_of",

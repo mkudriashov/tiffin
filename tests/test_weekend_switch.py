@@ -14,6 +14,7 @@ from tiffin.db import Db
 from tiffin.errors import NothingToBuild
 from tiffin.food import menu, plates, shared, weekend
 
+from .linking import link_pair
 from .test_dash_shopping_tab import (  # noqa: F401
     HEADER,
     MONDAY,
@@ -163,6 +164,9 @@ def test_the_page_has_the_switch_and_each_persons_own_taste(open_box) -> None:  
         "his, not hers"
     )
     assert post("api/weekend/taste", {"taste": "spicy"}).status_code == 400
+    refused = post("api/weekend/mode", {"mode": "together"})
+    assert refused.status_code == 409 and "linked to your partner" in refused.json()["detail"]
+    link_pair(box.db, box.owner_id, box.partner_id)
     refused = post("api/weekend/mode", {"mode": "together"})
     assert refused.status_code == 409 and "share weekend menus" in refused.json()["detail"]
     for pid in (box.owner_id, box.partner_id):

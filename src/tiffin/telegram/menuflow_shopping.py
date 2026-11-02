@@ -391,7 +391,8 @@ class MenuShoppingFlow:
             (
                 r
                 for r in h.db.all(
-                    "SELECT si.grams_needed, sl.id, sl.person_id, sl.owner_ids FROM shopping_items si "
+                    "SELECT si.grams_needed, sl.id, sl.person_id, sl.owner_ids "
+                    "FROM shopping_items si "
                     "JOIN shopping_lists sl ON sl.id = si.list_id "
                     "JOIN ingredients i ON i.id = si.ingredient_id "
                     "WHERE i.code = ? AND si.packs > 0 "

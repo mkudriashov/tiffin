@@ -176,14 +176,10 @@ def state(db: Db, person_id: int) -> State:
     return State("none", None, None if other is None else int(other["id"]), None, joined)
 
 
-def _event(
-    db: Db, link_id: int, person_id: int | None, event: str, method: str, **kw: Any
-) -> None:
+def _event(db: Db, link_id: int, person_id: int | None, event: str, method: str, **kw: Any) -> None:
     if method not in METHODS:
         raise ValueError(f"unknown method {method!r}")
-    db.insert(
-        "link_events", link_id=link_id, person_id=person_id, event=event, method=method, **kw
-    )
+    db.insert("link_events", link_id=link_id, person_id=person_id, event=event, method=method, **kw)
 
 
 def _expire_stale(db: Db) -> None:

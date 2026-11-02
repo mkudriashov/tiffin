@@ -225,7 +225,7 @@ def cooked_with(db: Db, person_id: int, day: dt.date) -> tuple[int, str] | None:
     its own person's again at once.
     """
     winner = menu.accepted_menu_id(db, person_id, day)
-    if winner is None or not shared.everyone_agreed(db):
+    if winner is None or not shared.linked_and_both_consented(db):
         return None
     pair = shared.pair_of(db, winner)
     if pair is None:

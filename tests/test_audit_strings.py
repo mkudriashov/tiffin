@@ -43,6 +43,8 @@ PHONE_FILES = (
     "prefs.py",
     # what a build in flight, a build that broke and one a restart killed say, bot and page
     "building.py",
+    # the refusals of a link code, said word for word on a phone and the page
+    "links.py",
 )
 #: the wire, not the words: `telegram/api.py` speaks HTTP to Telegram and builds no prose.
 #: Its only long strings are protocol and `TelegramError` text, and the echoed-exception guard
@@ -55,6 +57,7 @@ ECHOED_TO_A_PERSON = {
     "ValueError": ("body.py", "persons.py", "swap.py"),
     "NothingToBuild": ("menuflow.py", "swap.py"),
     "Infeasible": ("swap.py",),
+    "LinkError": ("links.py",),
 }
 
 #: words the code uses for its own bookkeeping. A person has never been shown them.

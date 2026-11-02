@@ -418,6 +418,11 @@ def test_consent_can_be_changed_without_redoing_the_interview(bot, fixture_db: D
         granted=1,
         wording_version="v1",
     )
+    # the shared-weekend switch is offered to people who are linked (links.py)
+    from tiffin import links as links_mod
+
+    ids = [int(r["id"]) for r in fixture_db.all("SELECT id FROM persons ORDER BY id")]
+    links_mod.record_migrated(fixture_db, ids[0], ids[1])
     shown = say("/consent")
     assert "Claude processing is ON" in shown
     buttons = [

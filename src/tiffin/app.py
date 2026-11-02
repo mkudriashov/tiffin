@@ -151,6 +151,7 @@ class App:
             foodflow,
             intents,
             interview,
+            linkflow,
             measures,
             menuflow,
             notesflow,
@@ -182,6 +183,7 @@ class App:
         weekflow.install(h, clock=self.clock)
         notesflow.install(h, clock=self.clock)
         packflow.install(h)
+        linkflow.install(h)
         interview.install(h, clock=self.clock)
         chat.install(h, lambda: self.gateway(db), clock=self.clock, config=self.config)
         return h

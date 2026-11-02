@@ -331,7 +331,7 @@ def test_a_migrated_placeholder_code_cannot_be_typed(fixture_db: Db, two_persons
 
 
 def test_the_migration_hook_refuses_nonsense(fixture_db: Db, two_persons) -> None:
-    a, b = ids(two_persons)
+    a, _b = ids(two_persons)
     with pytest.raises(links.LinkError):
         links.record_migrated(fixture_db, a, a)
     with pytest.raises(links.LinkError):

@@ -49,9 +49,7 @@ def _is_shared(db: Db, menu_id: int) -> bool:
     link ends the two menus are ordinary ones."""
     from .. import links  # noqa: PLC0415
 
-    row = db.one(
-        "SELECT shared_menu_id FROM shared_menu_members WHERE menu_id = ?", (menu_id,)
-    )
+    row = db.one("SELECT shared_menu_id FROM shared_menu_members WHERE menu_id = ?", (menu_id,))
     return row is not None and links.pair_open(db, int(row["shared_menu_id"]))
 
 
@@ -705,9 +703,7 @@ def weekend_days(segment_start: dt.date, segment_end: dt.date) -> list[dt.date]:
 DISH_SEP = " / "
 
 
-def close_joint(
-    db: Db, link_id: int, persons: Sequence[int], today: dt.date
-) -> tuple[int, int]:
+def close_joint(db: Db, link_id: int, persons: Sequence[int], today: dt.date) -> tuple[int, int]:
     """Close every open joint weekend list, because the link they were built under has ended.
 
     A closure row is written for each (the list itself is a ledger row and stays as it was). A
@@ -753,7 +749,9 @@ def _copy_joint_for(db: Db, joint: Any, person_id: int, span: tuple[dt.date, dt.
         basis=joint["basis"],
         link_id=None,
     )
-    for item in db.all("SELECT * FROM shopping_items WHERE list_id = ? ORDER BY id", (joint["id"],)):
+    for item in db.all(
+        "SELECT * FROM shopping_items WHERE list_id = ? ORDER BY id", (joint["id"],)
+    ):
         copied = db.insert(
             "shopping_items",
             list_id=new_id,

@@ -16,6 +16,7 @@ from tiffin.food import menu, recipes, shared
 from tiffin.food.recipes import RecipeDraft
 from tiffin.persons import PersonRegistry
 
+from .linking import link_pair
 from .test_menu import a_day, seed_catalogue
 
 SAT = dt.date(2026, 9, 19)
@@ -63,6 +64,7 @@ def pair(fixture_db: Db, two_persons, frozen_clock: FrozenClock, config):
         fixture_db.insert(
             "weigh_ins", person_id=pid, day="2026-09-15", weight_kg=kg, source="manual"
         )
+    link_pair(fixture_db, two_persons["owner"], two_persons["partner"])
     registry = PersonRegistry(fixture_db, config, clock=frozen_clock)
     persons = [registry.require("owner"), registry.require("partner")]
     return fixture_db, persons, frozen_clock
