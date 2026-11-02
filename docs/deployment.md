@@ -19,6 +19,8 @@ docker compose up -d --build
 
 A proxy in another container reaches the page over the compose network, so the volume's `tiffin.toml` needs `host = "0.0.0.0"` and `bind_trusted_network = true` under `[web]`. Do that only when that network is reachable by the proxy alone, and never publish the port. Any secret can also be supplied as a file with `TIFFIN_<NAME>_FILE` (for example `TIFFIN_TELEGRAM_TOKEN_FILE=/run/secrets/telegram_token`). Run one container per data volume and per bot token; stop an old poller on another machine first. Set `hosting.records` and `hosting.web_front` in `tiffin.toml` so the consent text names the machine and anything the page passes through. Everything above has been checked as text only; build and start it on a Linux host before relying on it.
 
+The compose example restarts the container with `on-failure:5`, not `unless-stopped`. If another copy of the same Telegram bot is already polling (an older install still running), Tiffin exits straight away each time, and an unlimited restart would loop and begin its jobs again on every start. Five tries, then it stays stopped and says why in its logs. Stop the old copy first.
+
 ## Backups and upgrades
 
 The scheduler writes backups under `TIFFIN_HOME/backups/`; `ops.backup_keep_days` controls retention. Back up the complete home, including the database, configuration and secrets, to storage you control. For a manual copy of a running SQLite database, use SQLite's backup API or stop the service first; copying only the live `tiffin.db` may omit WAL changes. Restore into a stopped instance and run `tiffin doctor` before resuming.

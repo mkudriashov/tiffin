@@ -125,6 +125,12 @@ def child_selects(db: Db, person_id: int, chat_ids: list[int]) -> dict[str, tupl
             "OR menu_id IN (SELECT id FROM menus WHERE person_id = ?))",
             (person_id, person_id),
         ),
+        # a closed joint list's closure row goes with the list it closes
+        "shopping_list_closures": (
+            "list_id IN (SELECT id FROM shopping_lists WHERE person_id = ? "
+            "OR menu_id IN (SELECT id FROM menus WHERE person_id = ?))",
+            (person_id, person_id),
+        ),
         "shopping_lists": (
             "person_id = ? OR menu_id IN (SELECT id FROM menus WHERE person_id = ?)",
             (person_id, person_id),
@@ -264,7 +270,11 @@ def _erase_rows(
                 "link_events", link_id=int(linked["id"]), person_id=None,
                 event="unlinked", method="system",
             )  # fmt: skip
-            shopping.close_joint(db, int(linked["id"]), (), clock.today_local())
+            # the person who stays is given their copy of the open joint list, as on an unlink
+            survivor = next(
+                int(linked[k]) for k in ("a_person", "b_person") if int(linked[k]) != pid
+            )
+            shopping.close_joint(db, int(linked["id"]), (survivor,), clock.today_local())
         # A login rebound from another person must not become active again when its newest
         # identity row is erased. Remove every older attachment of each login this person owns.
         current_logins = db.all(
@@ -284,6 +294,13 @@ def _erase_rows(
                 "WHERE tailscale_login = ? COLLATE NOCASE",
                 (login,),
             )
+        # what the other person was left over from this person's menus stays theirs, but no
+        # longer names a menu that is about to go
+        db.execute(
+            "UPDATE leftovers SET from_menu_id = NULL WHERE person_id != ? AND from_menu_id IN "
+            "(SELECT id FROM menus WHERE person_id = ?)",
+            (pid, pid),
+        )
         for table, (where, params) in child_selects(db, pid, chat_ids).items():
             cur = db.execute(f"DELETE FROM {table} WHERE {where}", params)
             counts[table] = cur.rowcount

@@ -196,7 +196,9 @@ def test_identity_is_required_and_resolved(client) -> None:
     assert health.status_code == 200
     payload = health.json()
     assert payload["status"] in ("ok", "degraded") and "person" not in payload
-    assert set(payload) >= {"env", "version", "db", "heartbeat_age_s", "last_backup"}
+    assert set(payload) == {"status"}, "the public answer is the status word alone"
+    owner_view = as_owner(c, "api/health").json()  # detail only for the signed-in owner
+    assert set(owner_view) >= {"env", "version", "db", "heartbeat_age_s", "last_backup"}
 
 
 def test_owner_status_includes_intervals_failures(client) -> None:
@@ -284,7 +286,7 @@ def test_write_fence(client) -> None:
     c, owner_id, _partner, db = client
     me = as_owner(c, "api/me")
     csrf = me.json()["csrf"]
-    assert me.cookies.get("tiffin_csrf") == csrf
+    assert me.cookies.get("tiffin_csrf") is None, "the token is signed to the session, not a cookie"
     item_id = int(
         db.scalar(
             "SELECT si.id FROM shopping_items si JOIN shopping_lists sl ON sl.id = si.list_id "

@@ -14,7 +14,10 @@ services:
   tiffin:
     build: .
     image: tiffin:local
-    restart: unless-stopped
+    # Five tries, then stop and stay stopped. If a second copy of the same Telegram bot is already
+    # polling (an old install still running), Tiffin exits at once each time; "unless-stopped"
+    # would restart it for ever and each start would begin its jobs again. Stop the old copy first.
+    restart: on-failure:5
     user: "10010:10010" # match the image's TIFFIN_UID build argument
     read_only: true
     tmpfs:

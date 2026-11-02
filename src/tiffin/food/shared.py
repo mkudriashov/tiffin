@@ -198,7 +198,8 @@ def payload_for(payload: Mapping[str, Any], slots: Sequence[str]) -> dict[str, A
 class Built:
     """What a shared build produced: the pair, and each person's own menu."""
 
-    shared_id: int
+    #: None when no link was active as the weekend was stored: two ordinary menus, no pair
+    shared_id: int | None
     menu_ids: dict[int, int]  # person id -> their menu
     #: how far apart the portions were when every answer was uneven and the evenest was kept -
     #: a weekend both can cook, and still less than was asked for (the run says so)
@@ -336,12 +337,18 @@ def _store(
         if accept:
             for mid in menu_ids.values():
                 menu.decide(db, mid, "accepted")
+        link_id = links.active_link_id(db)
+        if link_id is None:
+            # The link ended while the model was thinking. NULL means only "from before links
+            # existed" and would reopen on any later link, so store no pair at all: two ordinary
+            # menus.
+            return Built(None, menu_ids)
         shared_id = db.insert(
             "shared_menus",
             segment_start=isoday(segment.start),
             segment_end=isoday(segment.end),
             model_used=model_used,
-            link_id=links.active_link_id(db),
+            link_id=link_id,
         )
         for pid, mid in menu_ids.items():
             db.insert("shared_menu_members", shared_menu_id=shared_id, person_id=pid, menu_id=mid)

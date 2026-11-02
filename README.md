@@ -52,7 +52,7 @@ docker compose run --rm tiffin uv run --no-sync tiffin init --non-interactive --
 docker compose up -d --build
 ```
 
-Supply the bot token through `TIFFIN_TELEGRAM_TOKEN` before running the non-interactive Docker command. It waits for a pairing code sent to the bot. See [Docker setup](docs/deployment.md#docker) for details. The image does not contain Claude CLI; choose an API provider, a reachable local model or `none`. Shopping lists still work from the catalogue.
+Supply the bot token through `TIFFIN_TELEGRAM_TOKEN` before running the non-interactive Docker command. It waits for a pairing code sent to the bot. See [Docker setup](docs/deployment.md#docker) for details. The image contains the Claude CLI (give it a token as the compose file explains), or choose an API provider, a reachable local model or `none`. Shopping lists still work from the catalogue.
 
 ## Requirements
 

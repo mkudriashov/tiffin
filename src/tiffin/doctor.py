@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .app import App
-from .config import Budget
+from .config import Budget, public_https_origin
 from .db import SCHEMA_VERSION, Db
 from .heartbeat import Heartbeat
 from .http import get
@@ -310,6 +310,19 @@ def run_checks(app: App, *, online: bool = True) -> list[Check]:
         )
     else:
         checks.append(Check("disk", "warn", "home missing; run tiffin init"))
+    if public_https_origin(str(app.config.get("web.origin", ""))):
+        records = str(app.config.get("hosting.records", "this computer")).strip()
+        front = str(app.config.get("hosting.web_front", "")).strip()
+        if records == "this computer" or not front:
+            checks.append(
+                Check(
+                    "consent wording",
+                    "warn",
+                    "web.origin is a public https address, but hosting.records still says "
+                    "'this computer' or hosting.web_front is empty, so the consent text would "
+                    "tell people where their records are held wrongly; set both in tiffin.toml",
+                )
+            )
     if online:
         if app.config.get("web.enabled", True):
             port = app.config.web_port

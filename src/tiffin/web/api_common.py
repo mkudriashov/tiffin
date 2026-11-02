@@ -1,12 +1,15 @@
 """The JSON API. Identity comes from the middleware; nothing here reads a person from input.
 
-Writes pass a fence first (CSRF token equal to the cookie, same-origin, no unknown fields), and
+Writes pass a fence first (a CSRF token signed to this session, same-origin, no unknown fields), and
 each accepted write is one domain row plus one web_events row.
 """
 
 from __future__ import annotations
 
+import contextlib
 import datetime as dt
+import hashlib
+import hmac
 import json
 import math
 import secrets as pysecrets
@@ -19,9 +22,10 @@ from starlette.concurrency import run_in_threadpool
 from ..clock import parse_day
 from ..db import Db
 from ..persons import Person
-from .identity import person_of
+from .identity import SESSION_COOKIE, person_of
 
-CSRF_COOKIE = "tiffin_csrf"
+#: the name of the old double-submit cookie; no longer set or read, and cleared when seen
+LEGACY_CSRF_COOKIE = "tiffin_csrf"
 MAX_BODY = 8192
 #: SQLite stores a signed 64-bit INTEGER; anything past it overflows on the way into a query
 MAX_ROW_ID = 2**63 - 1
@@ -118,19 +122,45 @@ def _row_id(value: Any, what: str) -> int:
     return number
 
 
+def _csrf_key(app: Any) -> bytes:
+    """The server's own key for CSRF tokens: from the secrets folder, made on first use. If the
+    folder cannot be written the key lives for this process only, so tokens simply stop working
+    at a restart and the page asks the person to reload."""
+    state = getattr(app, "_csrf_key_cache", None)
+    if state is not None:
+        return state
+    value = app.secrets.optional("web_csrf_key")
+    if value is None:
+        value = pysecrets.token_hex(32)
+        with contextlib.suppress(OSError):
+            app.secrets.write("web_csrf_key", value)
+    key = value.encode("utf-8")
+    app._csrf_key_cache = key
+    return key
+
+
+def csrf_token_for(request: Request) -> str:
+    """The token this signed-in session may send back: an HMAC, under the server's key, of the
+    person and the session cookie. A script cannot make one up by setting a cookie, because it
+    does not hold the key."""
+    app = request.app.state.tiffin
+    person = getattr(request.state, "person", None)
+    who = "none" if person is None else str(person.id)
+    session = request.cookies.get(SESSION_COOKIE, "")
+    message = f"csrf1|{who}|{session}".encode()
+    return hmac.new(_csrf_key(app), message, hashlib.sha256).hexdigest()
+
+
 def check_fence(request: Request, body: Mapping[str, Any], allowed: set[str]) -> None:
     """CSRF token, same-origin, and no unknown fields; all before any DB touch."""
     token = request.headers.get("x-csrf-token")
-    cookie = request.cookies.get(CSRF_COOKIE)
     if (
         not token
-        or not cookie
         or not token.isascii()
-        or not cookie.isascii()
-        or not pysecrets.compare_digest(token, cookie)
+        or not pysecrets.compare_digest(token, csrf_token_for(request))
     ):
         # "bad csrf token" named the internal check, not the fix: a phone that dropped its
-        # cookie needs told to reload, not handed the name of a security mechanism it cannot
+        # session needs told to reload, not handed the name of a security mechanism it cannot
         # act on - the tick still un-ticks itself, but the toast now says what to do about it
         raise HTTPException(
             status_code=403, detail="That did not save. Reload the page and try again."

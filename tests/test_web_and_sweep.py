@@ -95,7 +95,7 @@ def test_the_csrf_token_survives_a_second_page_load() -> None:
     from tiffin.web import api
 
     src = inspect.getsource(api.me)
-    assert "request.cookies.get(CSRF_COOKIE) or" in src
+    assert "csrf_token_for(request)" in src  # the same session always gets the same token
 
 
 # ---------------------------------------------------------------- the joint list's recipients

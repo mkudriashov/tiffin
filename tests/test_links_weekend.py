@@ -146,6 +146,38 @@ def test_unlinking_during_a_build_leaves_ordinary_menus(pair) -> None:  # noqa: 
     assert not shared.possible(db, WEEKEND)
 
 
+def test_a_weekend_stored_with_no_link_does_not_reopen_on_a_later_link(pair) -> None:  # noqa: F811
+    db, (him, partner), clock = pair
+    for p in (him, partner):
+        _agree(db, p.id)
+    profiles = {
+        p.id: db.one("SELECT * FROM profiles WHERE person_id = ?", (p.id,)) for p in (him, partner)
+    }
+    from .test_review_0926_weekend import HIS, PARTNERS, _weekend_payload
+
+    def ask(_prompt: str, _hint: str):
+        unlink(db, partner.id)
+        return _weekend_payload(), "fake"
+
+    built = shared.build(
+        db,
+        WEEKEND,
+        [him, partner],
+        profiles,
+        {him.id: HIS, partner.id: PARTNERS},
+        ask,
+        prompt_for=lambda hint: "prompt" + hint,
+        clock=clock,
+    )
+    assert built.shared_id is None
+    assert db.one("SELECT COUNT(*) AS n FROM shared_menus WHERE link_id IS NULL")["n"] == 0
+    link_pair(db, him.id, partner.id)  # they link again
+    assert links.is_linked(db)
+    for p in (him, partner):
+        assert shared.pair_of(db, built.menu_ids[p.id]) is None
+        assert shared.partner_plate(db, p.id, built.menu_ids[p.id], SAT, "dinner") is None
+
+
 def test_swapping_a_dish_on_an_unlinked_weekend_does_not_re_pair_it(pair) -> None:  # noqa: F811
     db, (him, partner), _clock, _built = built_together(pair)
     unlink(db, him.id)
@@ -263,3 +295,27 @@ def test_unlinking_twice_closes_nothing_again(fixture_db: Db, two_persons) -> No
     with contextlib.suppress(links.LinkError):
         links.unlink(db, a, "web", today=dt.date(2026, 10, 2))
     assert db.scalar("SELECT COUNT(*) FROM shopping_list_closures") == n == 1
+
+
+def test_erasing_a_linked_person_leaves_the_other_their_copy_of_the_open_joint_list(
+    fixture_db: Db, two_persons, tmp_path
+) -> None:
+    import json
+
+    from tiffin import admin
+
+    db = fixture_db
+    _a, b, list_id, (_m1, m2), _items = joint_world(db, two_persons)
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"slug": "owner"}), encoding="utf-8")
+    admin.erase_person(
+        db,
+        "owner",
+        manifest_path=manifest,
+        clock=db.clock,  # type: ignore[arg-type]
+    )
+    assert not links.is_linked(db)
+    assert list_row(db, list_id, b) is None, "the joint list is closed"
+    theirs = newest_readable(db, b)
+    assert theirs is not None and int(theirs["person_id"]) == b and theirs["menu_id"] == m2
+    assert db.scalar("SELECT COUNT(*) FROM shopping_items WHERE list_id = ?", (theirs["id"],))

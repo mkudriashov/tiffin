@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import datetime as dt
 import json
-import secrets as pysecrets
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, Response
@@ -15,8 +14,18 @@ from ..clock import isoday, stamp
 from ..db import Db
 from ..food.products import ZERO_DECIMAL_CURRENCIES, price_decimals
 from ..heartbeat import Heartbeat
-from .api_common import CSRF_COOKIE, _body, _db, _person, _read, _row_id, _today, check_fence
-from .identity import IDLE_DAYS, SESSION_COOKIE, device_for
+from .api_common import (
+    LEGACY_CSRF_COOKIE,
+    _body,
+    _db,
+    _person,
+    _read,
+    _row_id,
+    _today,
+    check_fence,
+    csrf_token_for,
+)
+from .identity import HEADER, IDLE_DAYS, SESSION_COOKIE, Resolver, device_for, is_loopback
 
 router = APIRouter()
 
@@ -90,10 +99,37 @@ async def sign_out_device(request: Request) -> Response:
     return response
 
 
+#: headers a reverse proxy adds; a request that carries one did not come from the container itself
+_FORWARDED = ("x-forwarded-for", "forwarded", "x-real-ip", "x-forwarded-host")
+
+
+async def _may_see_health_detail(request: Request) -> bool:
+    """Full health detail goes to the container's own loopback check and to a signed-in owner;
+    anyone else on the internet gets the status word and nothing more."""
+    client = request.client.host if request.client else ""
+    if is_loopback(client) and not any(h in request.headers for h in _FORWARDED):
+        return True
+    app = request.app.state.tiffin
+    person = None
+    token = request.cookies.get(SESSION_COOKIE)
+    if token:
+        found = await run_in_threadpool(device_for, app, token)
+        person = None if found is None else found[0]
+    elif (
+        str(app.config.get("web.identity_mode", "telegram")) == "header"
+        and app.config.get("web.trusted_header_proxy", False) is True
+        and request.headers.get(HEADER)
+    ):
+        person = await run_in_threadpool(Resolver(app).by_login, request.headers[HEADER])
+    return person is not None and person.is_admin
+
+
 @router.get("/api/health")
 async def health(request: Request) -> dict[str, Any]:
-    """No identity or personal data; enough for a process health check."""
+    """No identity or personal data. The public answer is the status word alone; the detail
+    below goes only to the owner when signed in, or to the container's own check."""
     app = request.app.state.tiffin
+    detail = await _may_see_health_detail(request)
     paths = app.config.paths
     hb = Heartbeat(paths.state, app.clock).age_s()
     backup: dict[str, Any] | None = None
@@ -113,6 +149,8 @@ async def health(request: Request) -> dict[str, Any]:
     started = getattr(request.app.state, "started_at", None)
     stale_after = int(app.config.get("ops.heartbeat_stale_s", 180))
     degraded = (not db_ok) or (app.config.is_prod and (hb is None or hb >= stale_after))
+    if not detail:
+        return {"status": "degraded" if degraded else "ok"}
     return {
         "status": "degraded" if degraded else "ok",
         "env": app.config.env,
@@ -130,20 +168,14 @@ async def health(request: Request) -> dict[str, Any]:
 async def me(request: Request, response: Response) -> dict[str, Any]:
     person = _person(request)
     app = request.app.state.tiffin
-    # keep the token that is already in the cookie. Re-minting on every /api/me meant a second
-    # page load - a second tab, or the PWA alongside a browser tab - invalidated the first
-    # surface for good: every tick and every rating from it failed 403, the message auto-hid
-    # after six seconds, and nothing told the person to reload.
-    token = request.cookies.get(CSRF_COOKIE) or pysecrets.token_urlsafe(32)
-    response.set_cookie(
-        CSRF_COOKIE,
-        token,
-        secure=str(app.config.get("web.origin", "")).startswith("https://")
-        and (app.config.is_prod or bool(app.config.get("web.secure_cookies", True))),
-        samesite="strict",
-        path=str(app.config.get("web.root_path", "/tiffin")) or "/",
-        httponly=False,  # the page must read it to echo it back
-    )
+    # The token is signed to this session, so it is the same every time for the same session: a
+    # second tab, or the PWA alongside a browser tab, holds a token that still works. No cookie
+    # carries it, so nothing on the same address can plant one.
+    token = csrf_token_for(request)
+    if request.cookies.get(LEGACY_CSRF_COOKIE) is not None:
+        response.delete_cookie(
+            LEGACY_CSRF_COOKIE, path=str(app.config.get("web.root_path", "/tiffin")) or "/"
+        )
 
     def choosing(db: Db) -> dict[str, Any]:
         from ..food import choices, planning  # noqa: PLC0415 (food imports the db layer)

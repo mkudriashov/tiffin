@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import json
 import os
 import re
@@ -133,6 +134,27 @@ def _read_toml(path: Path) -> dict[str, Any]:
         raise ConfigError(f"config file missing: {path}") from None
     except tomllib.TOMLDecodeError as e:
         raise ConfigError(f"config file invalid: {path}: {e}") from None
+
+
+def public_https_origin(origin: str) -> bool:
+    """True for an https address that is not this computer: the shape of a public site. The
+    reserved example names (the shipped placeholder, `example.com`, `.test`) are not public."""
+    parts = urlsplit(str(origin).strip())
+    host = (parts.hostname or "").lower()
+    if parts.scheme != "https" or not host or host == "localhost":
+        return False
+    labels = host.split(".")
+    if (
+        "example" in labels
+        or labels[-1] in ("test", "invalid", "localhost")
+        or host.endswith((".example.com", ".example.net", ".example.org"))
+        or host in ("example.com", "example.net", "example.org")
+    ):
+        return False
+    try:
+        return not ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return True
 
 
 def default_home(environ: Mapping[str, str]) -> Path:

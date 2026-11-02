@@ -16,6 +16,7 @@ FILES: dict[str, str] = {
     "icu_key_owner": "icu-key-owner.txt",
     "icu_key_partner": "icu-key-partner.txt",
     "web_hmac_key": "web-hmac-key",
+    "web_csrf_key": "web-csrf-key",
     "model_api_key": "model-api-key.txt",
 }
 

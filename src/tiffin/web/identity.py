@@ -37,7 +37,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from .. import log
 from ..app import App
 from ..clock import DEFAULT_CLOCK, Clock, stamp
-from ..config import Config
+from ..config import Config, public_https_origin
 from ..db import Db
 from ..errors import ConfigError
 from ..persons import Person
@@ -270,6 +270,11 @@ def settings_from(config: Config, secrets: Secrets) -> IdentitySettings:
     if mode == "header" and config.get("web.trusted_header_proxy", False) is not True:
         raise ConfigError(HEADER_REFUSED)
     host = str(config.get("web.host", "127.0.0.1"))
+    if config.env == "dev" and public_https_origin(str(config.get("web.origin", ""))):
+        raise ConfigError(
+            "env=dev lets a request name itself with X-Dev-Person; refused while web.origin is a "
+            "public https address. Run with env=prod, or point web.origin at this computer."
+        )
     key = secrets.get("web_hmac_key").encode("utf-8") if mode == "signed_link" else None
     return IdentitySettings(
         mode=mode,
@@ -554,7 +559,8 @@ _CONFIRM_PAGE = (
 
 #: Lax, not Strict: a link opened from a chat app is a cross-site navigation, and a Strict
 #: cookie is withheld from it, so the page would greet a signed-in person as a stranger. Lax
-#: still withholds the cookie from cross-site POSTs; writes also need the CSRF double-submit.
+#: still withholds the cookie from cross-site POSTs; writes also need a CSRF token signed to the
+#: session.
 SAMESITE = "lax"
 
 
