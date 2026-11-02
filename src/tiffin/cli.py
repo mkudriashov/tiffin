@@ -306,6 +306,16 @@ def cmd_status(args: argparse.Namespace) -> int:
                     "ORDER BY started_at DESC LIMIT 10"
                 )
             ]
+            from . import expected  # noqa: PLC0415
+            from .jobs import all_jobs  # noqa: PLC0415
+
+            # every expected morning and evening message that has not gone by its grace deadline:
+            # slot, internal person id and due time (UTC), a reason and `late` or `missed`.
+            # Empty when all is well. No names, no content.
+            out["missed_slots"] = [
+                m.as_dict()
+                for m in expected.missing(db, app.registry(db), all_jobs(app.config), app.clock)
+            ]
             out["messages_out_24h"] = dict(
                 (r["status"], r["n"])
                 for r in db.all(

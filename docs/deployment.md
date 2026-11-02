@@ -21,6 +21,10 @@ A proxy in another container reaches the page over the compose network, so the v
 
 The compose example restarts the container with `on-failure:5`, not `unless-stopped`. If another copy of the same Telegram bot is already polling (an older install still running), Tiffin exits straight away each time, and an unlimited restart would loop and begin its jobs again on every start. Five tries, then it stays stopped and says why in its logs. Stop the old copy first.
 
+## Missed messages
+
+`tiffin status` prints a `missed_slots` list: each expected morning or evening message that has not gone 15 minutes after its time, with the job, the slot, the person's internal id, the due time (UTC), a reason (`no_run`, `run_failed`, `stuck`, `ok_without_message`, `send_failed`) and `late` (still inside its catch-up window) or `missed` (past it). Empty means every message went or was withheld on purpose: a job that had nothing to say records a skipped run with its reason, a paused person and a quiet-window drop leave a dropped message, and those are never listed. `tiffin doctor` shows the same as "expected messages" (red for missed, warning for late). A monitor can run `docker compose exec -T tiffin tiffin status` and alert when `missed_slots` is not empty.
+
 ## Backups and upgrades
 
 The scheduler writes backups under `TIFFIN_HOME/backups/`; `ops.backup_keep_days` controls retention. Back up the complete home, including the database, configuration and secrets, to storage you control. For a manual copy of a running SQLite database, use SQLite's backup API or stop the service first; copying only the live `tiffin.db` may omit WAL changes. Restore into a stopped instance and run `tiffin doctor` before resuming.

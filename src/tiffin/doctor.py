@@ -13,6 +13,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+from . import expected
 from .app import App
 from .config import Budget, public_https_origin
 from .db import SCHEMA_VERSION, Db
@@ -187,6 +188,10 @@ def run_checks(app: App, *, online: bool = True) -> list[Check]:
                 else:
                     checks.append(Check("jobs", "ok", "no recent failures"))
                 checks.append(_icu_check(db, app.registry(db).active()))
+                status_word, line = expected.summary(
+                    expected.missing(db, app.registry(db), all_jobs(app.config), app.clock)
+                )
+                checks.append(Check("expected messages", status_word, line))
                 for job in all_jobs(app.config):
                     last = db.one(
                         "SELECT status, started_at FROM run_ledger WHERE job = ? "
