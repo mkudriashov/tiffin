@@ -129,12 +129,16 @@ def serve(
     ready: threading.Event | None = None,
     dispatch: Any = None,
 ) -> None:
-    """Run uvicorn until `stop` is set. Refuses any bind that is not loopback."""
+    """Run uvicorn until `stop` is set. Refuses a bind beyond loopback unless the operator has
+    opted in with `web.bind_trusted_network = true` (a network only a proxy can reach)."""
     import uvicorn  # noqa: PLC0415 (heavy; only the running process needs it)
 
     host = str(app.config.get("web.host", "127.0.0.1"))
-    if not is_loopback(host):
-        raise ConfigError(f"web.host must be loopback, got {host!r}")
+    if not is_loopback(host) and app.config.get("web.bind_trusted_network", False) is not True:
+        raise ConfigError(
+            f"web.host must be loopback, got {host!r}; to bind a network that only your "
+            "reverse proxy can reach, set web.bind_trusted_network = true"
+        )
     port = app.config.web_port
     config = uvicorn.Config(
         create_app(app, dispatch=dispatch),
@@ -162,7 +166,7 @@ def serve(
 
     watcher = threading.Thread(target=watch, name="web-stop", daemon=True)
     watcher.start()
-    logger.info("web on 127.0.0.1:%s", port, extra={"event": "web_start"})
+    logger.info("web on %s:%s", host, port, extra={"event": "web_start"})
     try:
         server.run()
     finally:

@@ -190,6 +190,8 @@ def _validate(data: Mapping[str, Any]) -> None:
         raise ConfigError("[web] must be a table in tiffin.toml")
     if not isinstance(web.get("enabled"), bool):
         raise ConfigError("web.enabled must be true or false")
+    if not isinstance(web.get("bind_trusted_network"), bool):
+        raise ConfigError("web.bind_trusted_network must be true or false")
     if web.get("identity_mode") not in ("header", "signed_link", "telegram"):
         raise ConfigError("web.identity_mode must be header, telegram or signed_link")
     try:

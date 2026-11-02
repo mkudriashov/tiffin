@@ -22,6 +22,9 @@ alert_cooldown_min = 180
 [web]
 enabled = true
 host = "127.0.0.1"
+# Off: the page binds loopback only. On: it may bind another address, for a container whose
+# network only your reverse proxy can reach. Never publish that port to the internet.
+bind_trusted_network = false
 port_prod = 7788
 port_dev = 7789
 root_path = "/tiffin"

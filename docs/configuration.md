@@ -43,6 +43,7 @@ Loopback web listener, URL and identity mode. See [web access](web-access.md).
 | --- | --- | --- |
 | `web.enabled` | `true` | Enabled. |
 | `web.host` | `"127.0.0.1"` | Host. |
+| `web.bind_trusted_network` | `false` | `true` lets the page bind an address other than loopback, for a container on a network only your reverse proxy can reach. Never publish that port directly. |
 | `web.port_prod` | `7788` | Port prod. |
 | `web.port_dev` | `7789` | Port dev. |
 | `web.root_path` | `"/tiffin"` | URL mount path with ordinary segments; use an empty string when served at `/`. |

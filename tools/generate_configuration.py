@@ -53,6 +53,10 @@ SPECIAL = {
         "`telegram` uses a one-use bot link; `header` trusts Tailscale Serve; "
         "`signed_link` is retained for existing installations."
     ),
+    "web.bind_trusted_network": (
+        "`true` lets the page bind an address other than loopback, for a container on a network "
+        "only your reverse proxy can reach. Never publish that port directly."
+    ),
     "web.root_path": (
         "URL mount path with ordinary segments; use an empty string when served at `/`."
     ),
