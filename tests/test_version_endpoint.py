@@ -61,11 +61,11 @@ def test_the_container_itself_gets_the_reply(client: TestClient) -> None:
     assert client.get("/version", headers={"Tailscale-User-Login": OWNER}).json() == r.json()
 
 
-def test_a_stranger_and_the_partner_get_a_plain_404(client: TestClient) -> None:
+def test_a_stranger_and_the_partner_are_refused(client: TestClient) -> None:
     for headers in ({}, {"Tailscale-User-Login": OTHER}, {"Tailscale-User-Login": "x@example.com"}):
         for path in ("/api/version", "/version"):
             r = client.get(path, headers=headers)
-            assert r.status_code == 404, (path, headers)
+            assert r.status_code == 403, (path, headers)
             assert "b" * 40 not in r.text and "2026.11" not in r.text
 
 
@@ -81,4 +81,4 @@ def test_loopback_without_proxy_headers_is_the_containers_own_check(
     assert inside.get("/api/version").status_code == 200
     # a request that came through a proxy carries one of these headers: not the container's own
     for header in ("X-Forwarded-For", "Forwarded", "X-Real-IP"):
-        assert inside.get("/api/version", headers={header: "203.0.113.9"}).status_code == 404
+        assert inside.get("/api/version", headers={header: "203.0.113.9"}).status_code == 403

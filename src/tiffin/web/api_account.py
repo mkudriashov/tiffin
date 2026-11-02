@@ -129,10 +129,10 @@ async def _may_see_health_detail(request: Request) -> bool:
 @router.get("/version")
 async def version(request: Request) -> dict[str, str]:
     """Release and commit, for the container's own check and the signed-in owner. Anyone else,
-    including a stranger or the partner through the proxy, gets the same 404 as a page that is not
-    there. No secret, path or person in the reply."""
+    a stranger or the partner through the proxy, is refused like every other route. No secret,
+    path or person in the reply."""
     if not await _may_see_health_detail(request):
-        raise HTTPException(status_code=404, detail="Not found")
+        raise HTTPException(status_code=403, detail="Not allowed")
     return release.info()
 
 

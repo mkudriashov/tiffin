@@ -31,7 +31,7 @@ At start `tiffin run` creates `home` and `tmp` under `TIFFIN_HOME` (the image se
 
 ## Which release is running
 
-`GET <root_path>/api/version` (also `<root_path>/version`) answers `{"component": "tiffin", "release": ..., "commit": ...}` to the container's own request (loopback with no proxy header) and to the signed-in owner, and with the same 404 as a page that is not there to everyone else. The release id is `TIFFIN_RELEASE` and the commit `TIFFIN_COMMIT`; the image sets them from the build arguments `RELEASE_ID` and `RELEASE_COMMIT`. Without `TIFFIN_COMMIT` the commit is the one `git archive` writes into `src/tiffin/_stamp.py` (`export-subst`); anything that is not a plain id or hex commit reads as `unknown`. No schema, secret, path or person is in the reply.
+`GET <root_path>/api/version` (also `<root_path>/version`) answers `{"component": "tiffin", "release": ..., "commit": ...}` to the container's own request (loopback with no proxy header) and to the signed-in owner, and with a 403, as for every other route, to everyone else. The release id is `TIFFIN_RELEASE` and the commit `TIFFIN_COMMIT`; the image sets them from the build arguments `RELEASE_ID` and `RELEASE_COMMIT`. Without `TIFFIN_COMMIT` the commit is the one `git archive` writes into `src/tiffin/_stamp.py` (`export-subst`); anything that is not a plain id or hex commit reads as `unknown`. No schema, secret, path or person is in the reply.
 
 ## Missed messages
 
