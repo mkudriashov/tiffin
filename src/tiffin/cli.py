@@ -265,13 +265,14 @@ def cmd_run(args: argparse.Namespace) -> int:
         raise ConfigError(
             f"cannot create database under TIFFIN_HOME at {app.config.paths.root}"
         ) from exc
-    from .runtime import Runtime  # noqa: PLC0415
+    from .runtime import Runtime, install_signal_handlers  # noqa: PLC0415
 
     rt = Runtime(
         app,
         heartbeat_s=int(app.config.get("ops.heartbeat_s", 30)),
         tick_s=int(app.config.get("schedule.tick_s", 30)),
     )
+    install_signal_handlers(rt)
     return rt.run()
 
 

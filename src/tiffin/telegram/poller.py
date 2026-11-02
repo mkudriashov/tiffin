@@ -23,6 +23,12 @@ from .api import TelegramApi
 
 logger = log.get("tiffin.poller")
 OFFSET_KEY = "update_offset"
+#: how long a 409 (another getUpdates still holds the token) is retried before it is called a
+#: second poller. A poll that was in flight when the last process stopped is released by
+#: Telegram within about 65 seconds; two minutes covers that with room, and a real second
+#: poller is still stopped, only after the wait.
+CONFLICT_GRACE_S = 120.0
+CONFLICT_RETRY_S = 5.0
 
 
 @dataclass(frozen=True)
@@ -93,6 +99,9 @@ class Poller:
         sleeper: Callable[[float], None] = time.sleep,
         allowed_chat_ids: frozenset[int] | None = None,
         pairing_enabled: bool = True,
+        ready: threading.Event | None = None,
+        monotonic: Callable[[], float] = time.monotonic,
+        conflict_grace_s: float = CONFLICT_GRACE_S,
     ):
         self.api = api
         self.db = db
@@ -104,6 +113,11 @@ class Poller:
         self.pairing_enabled = pairing_enabled
         self.last_poll_utc: str | None = None
         self.error_streak = 0
+        #: set once Telegram has answered a poll (or failed in a way that is not a conflict):
+        #: from then on no other poller is known to hold this token. The scheduler waits for it.
+        self.ready = ready if ready is not None else threading.Event()
+        self.monotonic = monotonic
+        self.conflict_grace_s = conflict_grace_s
 
     # -- loop ----------------------------------------------------------------------
     def offset(self) -> int:
@@ -115,6 +129,7 @@ class Poller:
         except TelegramConflict:
             raise
         except TelegramError as e:
+            self.ready.set()  # not a conflict: nobody else is known to hold the token
             self.error_streak += 1
             logger.warning(
                 "getUpdates failed type=%s", type(e).__name__, extra={"event": "poll_error"}
@@ -122,6 +137,7 @@ class Poller:
             self.sleeper(min(2.0**self.error_streak, 60.0))
             return 0
         self.error_streak = 0
+        self.ready.set()
         self.last_poll_utc = self.clock.utc_stamp()
         for update in updates:
             try:
@@ -148,9 +164,37 @@ class Poller:
                     )
         return len(updates)
 
+    def _wait(self, stop: threading.Event, seconds: float) -> None:
+        """Wait, ending at once on stop; a test's own sleeper is used as given."""
+        if self.sleeper is time.sleep:
+            stop.wait(seconds)
+        else:
+            self.sleeper(seconds)
+
     def run_forever(self, stop: threading.Event) -> None:
+        """Poll until `stop`. A 409 is retried for `conflict_grace_s`, because the previous
+        process's long poll may still be open at Telegram after a quick restart; if it persists
+        another poller really holds the token and `TelegramConflict` propagates (exit 3). A 409
+        that arrives after `stop` is ours: the stopping process released its own poll."""
+        since: float | None = None
         while not stop.is_set():
-            self.run_once()
+            try:
+                self.run_once()
+            except TelegramConflict:
+                if stop.is_set():
+                    return
+                now = self.monotonic()
+                if since is None:
+                    since = now
+                    logger.warning(
+                        "another getUpdates holds the token; retrying",
+                        extra={"event": "telegram_conflict_wait"},
+                    )
+                if now - since >= self.conflict_grace_s:
+                    raise
+                self._wait(stop, min(CONFLICT_RETRY_S, self.conflict_grace_s / 10))
+                continue
+            since = None
 
     # -- one update --------------------------------------------------------------
     def _allowed(self, chat_id: int) -> bool:

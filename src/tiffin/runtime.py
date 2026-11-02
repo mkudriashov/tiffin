@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import queue
+import signal
 import sys
 import threading
 import time
@@ -23,10 +24,13 @@ from .errors import TelegramConflict
 from .heartbeat import Heartbeat, PidFile
 from .jobs import all_jobs
 from .scheduler import Job, Scheduler
-from .telegram.poller import Inbound, Poller
+from .telegram.poller import CONFLICT_GRACE_S, OFFSET_KEY, Inbound, Poller
 
 logger = log.get("tiffin.runtime")
 SYSTEM = 0
+#: how long a stop waits for work in flight before the process ends. Compose's
+#: `stop_grace_period` must be longer, or the container is killed first.
+STOP_GRACE_S = 20.0
 
 WorkItem = Inbound | Callable[[Db], object] | None
 
@@ -132,12 +136,14 @@ class Runtime:
         tick_s: int = 30,
         jobs: list[Job] | None = None,
         serve_web: bool = True,
+        conflict_grace_s: float = CONFLICT_GRACE_S,
         sleeper: Callable[[float], None] = time.sleep,
     ):
         self.app = app
         self.heartbeat_s = heartbeat_s
         self.tick_s = tick_s
         self.serve_web = serve_web
+        self.conflict_grace_s = conflict_grace_s
         self.sleeper = sleeper
         self.stop_event = threading.Event()
         #: person_id for the ordered lane, (person_id, lane) for the read-only one
@@ -145,6 +151,10 @@ class Runtime:
         self._lock = threading.Lock()
         self.threads: list[threading.Thread] = []
         self.exit_code = 0
+        #: set by the poller once Telegram has answered (or failed without a 409). The
+        #: scheduler waits for it, so a process whose token another poller still holds
+        #: never starts a job of its own.
+        self.poll_ready = threading.Event()
         self.heartbeat = Heartbeat(app.config.paths.state, app.clock)
         self.pidfile = PidFile(app.config.paths.state, app.clock)
         self.poller: Poller | None = None
@@ -189,6 +199,8 @@ class Runtime:
         try:
             target(self.stop_event)
         except TelegramConflict as e:
+            if self.stop_event.is_set():
+                return  # our own poll, ended by the stop
             logger.error(
                 "%s conflict type=%s", name, type(e).__name__, extra={"event": "telegram_conflict"}
             )
@@ -212,6 +224,8 @@ class Runtime:
             clock=self.app.clock,
             allowed_chat_ids=allowed,
             pairing_enabled=cfg.is_prod,
+            ready=self.poll_ready,
+            conflict_grace_s=self.conflict_grace_s,
         )
         try:
             # the "/" menu in Telegram, from the same table /help renders - once per start, and
@@ -232,7 +246,10 @@ class Runtime:
             stop.wait(self.heartbeat_s)
 
     def _scheduler_loop(self, stop: threading.Event) -> None:
-        self.scheduler.run_forever(stop)
+        while not stop.is_set() and not self.poll_ready.wait(0.05):
+            pass
+        if not stop.is_set():
+            self.scheduler.run_forever(stop)
 
     def _web_loop(self, stop: threading.Event) -> None:
         from .web.app import serve  # noqa: PLC0415 (fastapi + uvicorn are heavy)
@@ -289,12 +306,49 @@ class Runtime:
                 building.say(db, person_id, was["id"], said)
             self.app.outbox(db).reply(person, said)
 
+    def request_stop(self) -> None:
+        """Ask the runtime to stop; safe in a signal handler (it only sets an event)."""
+        self.stop_event.set()
+
+    def _release_poll(self) -> None:
+        """End the long poll Telegram still holds open for us, so the next process (a restart, a
+        backup's stop and start) is not met with a 409. Best effort."""
+        if self.poller is None:
+            return
+        try:
+            db = self.app.open_db()
+            try:
+                offset = int(db.state_get(OFFSET_KEY, "0") or 0)
+            finally:
+                db.close()
+            self.app.api().release_poll(offset)
+        except Exception:
+            logger.warning("poll not released", extra={"event": "release_poll_failed"})
+
     def stop(self) -> None:
+        """Stop cleanly: no new work, the poll released, work in flight given STOP_GRACE_S.
+
+        What a job still running at the end leaves: its run_ledger row stays 'running' (the
+        scheduler retries the slot an hour later if its window is open; a message already sent is
+        never sent twice) and a build someone asked for keeps its mark, which the next start
+        reports to them as interrupted."""
         self.stop_event.set()
         for w in self.workers.values():
             w.queue.put(None)
+        self._release_poll()
+        deadline = time.monotonic() + STOP_GRACE_S
+        alive: list[str] = []
         for t in self.threads + list(self.workers.values()):
-            t.join(timeout=5)
+            t.join(timeout=max(0.0, deadline - time.monotonic()))
+            if t.is_alive():
+                alive.append(t.name)
+        if alive:
+            logger.warning(
+                "stopped with %d thread(s) still busy: %s",
+                len(alive),
+                ", ".join(alive),
+                extra={"event": "stop_with_work"},
+            )
         self.pidfile.remove()
         logger.info("runtime stopped exit=%s", self.exit_code, extra={"event": "stop"})
 
@@ -308,3 +362,22 @@ class Runtime:
         finally:
             self.stop()
         return self.exit_code
+
+
+def install_signal_handlers(rt: Runtime) -> None:
+    """SIGTERM (docker stop), SIGINT and, on Windows, SIGBREAK stop the runtime cleanly.
+
+    Python as PID 1 gets no default action for SIGTERM, so without a handler `docker stop`
+    waits its whole grace period and then kills the process mid-job. The handler only sets the
+    stop event, which is safe from a signal handler, and works the same under an init."""
+
+    def handler(_signum: int, _frame: object) -> None:
+        rt.request_stop()
+
+    for name in ("SIGTERM", "SIGINT", "SIGBREAK"):
+        number = getattr(signal, name, None)
+        if number is not None:
+            try:
+                signal.signal(number, handler)
+            except ValueError:  # not the main thread (a test): nothing to install
+                return

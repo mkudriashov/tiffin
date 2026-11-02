@@ -61,6 +61,10 @@ class Paths:
             self.secrets,
             self.icu_streams,
             self.claude_cwd,
+            # HOME and TMPDIR of the container image are /data/home and /data/tmp; a bind mount
+            # over /data hides the ones the image made, and the Claude CLI needs both
+            self.root / "home",
+            self.root / "tmp",
         ):
             p.mkdir(mode=0o700, parents=True, exist_ok=True)
 

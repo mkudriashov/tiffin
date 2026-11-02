@@ -168,6 +168,20 @@ class TelegramApi:
         """The bot's "/" menu in Telegram, replacing whatever was set before."""
         self._call("setMyCommands", {"commands": commands})
 
+    def release_poll(self, offset: int) -> None:
+        """Take over the token for one instant so a getUpdates still open at Telegram ends.
+
+        A stopping process cannot cancel the long poll its poller thread is blocked in. A new
+        getUpdates with the same offset and no timeout makes Telegram end the old one (it answers
+        409 to it) and returns at once; nothing is confirmed, so no update is lost. One attempt,
+        a short timeout, every failure ignored: this only makes the next start quicker."""
+        url = f"{self.base}/bot{self._token}/getUpdates"
+        data = json.dumps(
+            {"offset": offset, "timeout": 0, "allowed_updates": ALLOWED_UPDATES}
+        ).encode("utf-8")
+        with contextlib.suppress(Exception):
+            self.transport(url, "POST", data, {"Content-Type": "application/json"}, 5.0)
+
     def get_updates(self, offset: int, timeout_s: int | None = None) -> list[dict[str, Any]]:
         poll = self.poll_timeout_s if timeout_s is None else timeout_s
         payload = {"offset": offset, "timeout": poll, "allowed_updates": ALLOWED_UPDATES}
