@@ -27,3 +27,21 @@ jobs:
       - run: uv run --no-sync ruff check .
       - run: uv run --no-sync ruff format --check .
       - run: uv run --no-sync pyright
+
+  image:
+    name: Image builds and runs as a non-root user
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build
+        run: docker build --build-arg RELEASE_ID=ci --build-arg RELEASE_COMMIT="$GITHUB_SHA" -t tiffin-candidate .
+      - name: Runs as its own user with a read-only root
+        run: |
+          mkdir -p /tmp/tiffin-data && sudo chown 10010:10010 /tmp/tiffin-data
+          docker run --rm --user 10010:10010 --read-only --cap-drop ALL --security-opt no-new-privileges:true \
+            --tmpfs /tmp -v /tmp/tiffin-data:/data tiffin-candidate sh -c 'id -u | grep -qx 10010 && tiffin version && claude --version'
+      - name: The healthcheck module and the time zone data are in the image
+        run: |
+          docker run --rm --read-only --tmpfs /tmp tiffin-candidate python -c \
+            "import tiffin.healthcheck, zoneinfo; print(zoneinfo.ZoneInfo('Europe/London'))"
