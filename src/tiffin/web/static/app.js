@@ -8,6 +8,8 @@ import { renderProgress } from "./progress.js";
 import { renderShopping } from "./shopping.js";
 import { renderSummary, renderTrends } from "./progress_page.js";
 import { renderToday, todayShowing, setTodayShowing } from "./today.js";
+// A message link's sign-in token after "#" is not needed once signed in: keep it out of the address bar and history.
+if (/(?:^#|&)k=/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search);
 
 /* ---------------------------------------------------------------- shell */
 // Five destinations: Today, Menu, Shopping, Progress and More. Eight

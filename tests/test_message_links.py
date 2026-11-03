@@ -65,8 +65,8 @@ def test_every_page_link_in_a_message_carries_one_token_for_its_recipient(
     signed = sign_page_links(app, fixture_db, partner, text)
     menu, page, other = _hrefs(signed)
     assert other == "https://example.com/x"
-    assert menu.startswith(ORIGIN + "/?tab=menu&day=2026-11-03&slot=dinner&k=")
-    assert page.startswith(ORIGIN + "/?k=")
+    assert menu.startswith(ORIGIN + "/?tab=menu&day=2026-11-03&slot=dinner#k=")
+    assert page.startswith(ORIGIN + "/#k=")  # after "#": never sent to a server
     assert menu.split("k=")[1] == page.split("k=")[1]  # one token per message
     assert link_is_live(app, page.split("k=")[1])
     rows = fixture_db.all("SELECT person_id, expires_at FROM web_login_links")
@@ -91,9 +91,10 @@ def test_tapping_a_message_link_signs_in_and_opens_the_tab_it_named(
         sign_page_links(app, fixture_db, partner, render.menu_link(app.config, day="2026-11-04"))
     )[0]
     browser = _client(app)
-    page = browser.get(link, follow_redirects=False)
-    assert page.status_code == 200 and 'id="go"' in page.text
+    page = browser.get(link.split("#")[0], follow_redirects=False)  # what the server sees
+    assert page.status_code == 403 and 'id="go"' in page.text and 'name="k" value=""' in page.text
     assert 'name="next" value="tab=menu&amp;day=2026-11-04"' in page.text
+    assert link.split("#k=")[1] not in page.text  # the server never had the token to echo
     done = sign_in(browser, link)
     assert done.status_code == 303
     assert done.headers["location"] == "/?tab=menu&day=2026-11-04"
@@ -111,25 +112,43 @@ def test_a_signed_in_device_goes_straight_to_the_page_and_spends_nothing(
     later = _hrefs(
         sign_page_links(app, fixture_db, partner, render.shopping_link(app.config, list_id=7))
     )[0]
-    opened = browser.get(later, follow_redirects=False)
-    assert opened.status_code == 303 and opened.headers["location"] == "/?tab=shopping&list=7"
+    opened = browser.get(later.split("#")[0], follow_redirects=False)
+    assert opened.status_code == 200 and 'id="go"' not in opened.text  # the page itself
     assert link_is_live(app, later.split("k=")[1])
-    # and a link already used once still opens the page on the device it signed in
-    again = browser.get(first, follow_redirects=False)
-    assert again.status_code == 303 and again.headers["location"] == "/"
 
 
-def test_message_links_last_a_week_then_say_so(
+def test_message_links_last_three_days_then_say_so(
     config, fixture_db, two_persons, frozen_clock
 ) -> None:
     app = _app(config, fixture_db, frozen_clock)
     owner = app.registry(fixture_db).require("owner")
     link = _hrefs(sign_page_links(app, fixture_db, owner, render.page_link(app.config)))[0]
+    token = link.split("#k=")[1]
     frozen_clock.advance(minutes=MESSAGE_LINK_DAYS * 24 * 60 - 5)
-    assert _client(app).get(link).status_code == 200
+    assert link_is_live(app, token)
     frozen_clock.advance(minutes=10)
-    gone = _client(app).get(link)
+    assert not link_is_live(app, token)
+    gone = sign_in(_client(app), link)
     assert gone.status_code == 403 and "expired or was used already" in gone.text
+
+
+def test_signing_a_device_out_ends_every_unused_message_link(
+    config, fixture_db, two_persons, frozen_clock
+) -> None:
+    app = _app(config, fixture_db, frozen_clock)
+    owner = app.registry(fixture_db).require("owner")
+    browser = _client(app)
+    first = _hrefs(sign_page_links(app, fixture_db, owner, render.page_link(app.config)))[0]
+    assert sign_in(browser, first).status_code == 303
+    waiting = _hrefs(sign_page_links(app, fixture_db, owner, render.page_link(app.config)))[0]
+    assert link_is_live(app, waiting.split("#k=")[1])
+    csrf = browser.get("/api/me").json()["csrf"]
+    device = browser.get("/api/devices").json()["devices"][0]["id"]
+    out = browser.post(
+        "/api/devices/sign-out", json={"device_id": device}, headers={"X-CSRF-Token": csrf}
+    )
+    assert out.status_code == 200
+    assert not link_is_live(app, waiting.split("#k=")[1])
 
 
 def test_the_ledger_keeps_the_message_without_its_token(
@@ -150,7 +169,7 @@ def test_the_ledger_keeps_the_message_without_its_token(
     outbox.env = "prod"
     result = outbox.send(owner, "test", "k1", "See " + render.page_link(app.config))
     assert result.sent
-    assert "k=" in sent[0]
+    assert "#k=" in sent[0]
     stored = fixture_db.one("SELECT text_html FROM messages_out WHERE id = ?", (result.id,))
     assert "k=" not in stored["text_html"]
 

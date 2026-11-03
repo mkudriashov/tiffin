@@ -26,7 +26,15 @@ from .api_common import (
     check_fence,
     csrf_token_for,
 )
-from .identity import HEADER, IDLE_DAYS, SESSION_COOKIE, Resolver, device_for, is_loopback
+from .identity import (
+    HEADER,
+    IDLE_DAYS,
+    SESSION_COOKIE,
+    Resolver,
+    burn_live_links,
+    device_for,
+    is_loopback,
+)
 
 router = APIRouter()
 
@@ -83,6 +91,8 @@ async def sign_out_device(request: Request) -> Response:
         if row is None:
             return False
         db.insert("web_device_events", device_id=device_id, action="sign_out")
+        # unused sign-in links in old messages end too: a forwarded one cannot sign anyone in
+        burn_live_links(db, person.id, request.app.state.tiffin.clock)
         return True
 
     if not await _read(request, write):

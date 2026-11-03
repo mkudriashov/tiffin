@@ -117,7 +117,12 @@ def test_a_signed_out_visit_to_the_root_goes_to_the_landing(
 ) -> None:
     app = _app(config, fixture_db, frozen_clock, signed_out_redirect=ROOT + "/overview/")
     response = _client(app).get(prefix + "/", follow_redirects=False)
-    assert response.status_code == 303 and response.headers["location"] == ROOT + "/overview/"
+    # a page, not a redirect: a message link's token after "#" must reach the page's script,
+    # which goes on to the landing when there is none (and a plain link does without script)
+    assert response.status_code == 200
+    assert f'data-fallback="{ROOT}/overview/"' in response.text
+    assert f'<a href="{ROOT}/overview/">' in response.text
+    assert f'<script src="{ROOT}/signin.js" defer></script>' in response.text
 
 
 @pytest.mark.parametrize("prefix", SHAPES.values(), ids=SHAPES.keys())

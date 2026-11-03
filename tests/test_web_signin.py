@@ -414,7 +414,9 @@ def test_a_signed_out_visitor_to_the_root_is_sent_to_the_configured_landing(
     app = _app(config, fixture_db, frozen_clock, signed_out_redirect="/tiffin/overview/")
     client = _client(app)
     response = client.get("/", follow_redirects=False)
-    assert response.status_code == 303 and response.headers["location"] == "/tiffin/overview/"
+    # a page whose script goes on to the landing (a message link's "#k=" must reach it first)
+    assert response.status_code == 200 and 'data-fallback="/tiffin/overview/"' in response.text
+    assert '<a href="/tiffin/overview/">' in response.text
     # the API and every other page still refuse, in words, rather than redirecting
     assert client.get("/api/whoami", follow_redirects=False).status_code == 403
     assert client.get("/static/x", follow_redirects=False).status_code == 403

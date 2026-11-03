@@ -65,16 +65,22 @@ IDLE_DAYS = 14
 SESSION_DAYS = 90
 SEEN_EVERY_HOURS = 12
 MAX_FORM_BYTES = 2048
-#: How long a link inside one of the bot's messages can still sign a device in. A menu sent at
-#: 18:00 is read the next morning, and a week's list across the week. Still one use: after it, the
-#: device's own session carries on, and a spent link on a signed-in device just opens the page.
-MESSAGE_LINK_DAYS = 7
-#: The one script the sign-in page loads: it presses the button, so a link opens the page in one
-#: tap. Served before identity (a signed-out device must be able to fetch it) and has no secrets.
+#: How long a link inside one of the bot's messages can still sign a device in: the evening's
+#: menu read the next morning, a weekend's list on Monday. One use; a device that is already
+#: signed in never spends it; signing out any device ends every unused one (burn_live_links).
+MESSAGE_LINK_DAYS = 3
+#: The one script the sign-in pages load. A message link carries its token after "#", which a
+#: browser never sends to a server, so no log, proxy or Referer can hold it; the script reads it,
+#: wipes it from the address bar and posts it. With nothing to post it goes to the fallback (the
+#: signed-out overview). Served before identity, and holds no secrets.
 SIGNIN_SCRIPT_PATH = "/signin.js"
 SIGNIN_SCRIPT = (
-    "(function(){var f=document.getElementById('go');"
-    "if(f&&!f.dataset.sent){f.dataset.sent='1';f.submit();}})();\n"
+    "(function(){var f=document.getElementById('go');if(!f||f.dataset.sent)return;"
+    "var k=f.querySelector('input[name=k]');"
+    "if(!k.value){var m=/(?:^#|&)k=([A-Za-z0-9_-]{20,128})/.exec(location.hash);"
+    "if(m){k.value=m[1];history.replaceState(null,'',location.pathname+location.search);}"
+    "else{var b=f.getAttribute('data-fallback');if(b)location.replace(b);return;}}"
+    "f.dataset.sent='1';f.submit();})();\n"
 )
 #: What a link may ask the page to open after signing in: tab and the few things a tab reads.
 #: Anything else is dropped, so a link can never carry the page somewhere it would not go itself.
@@ -236,8 +242,8 @@ def sign_page_links(app: App, db: Db, person: Person, text_html: str) -> str:
             if token is None:
                 token = _issue_token(app, db, person, MESSAGE_LINK_DAYS * 24 * 60)
             query = tail.lstrip("/").lstrip("?")
-            joined = f"{query}&amp;k={token}" if query else f"k={token}"
-            out.append(f'href="{base}/?{joined}"')
+            # after "#": never sent to a server, so never in a log, a proxy or a Referer
+            out.append(f'href="{base}/' + (f"?{query}" if query else "") + f'#k={token}"')
         else:
             out.append(f'href="{base}{tail}"')
         rest = after[end + 1 :]
@@ -302,6 +308,19 @@ def live_link_person(app: App, token: str) -> int | None:
             (_hash(token), app.clock.utc_stamp()),
         )
         return None if row is None else int(row["person_id"])
+
+
+def burn_live_links(db: Db, person_id: int, clock: Clock) -> int:
+    """End every unused sign-in link a person has, so a message forwarded or left in a chat
+    cannot sign a new device in after they sign a device out. Returns how many were ended."""
+    rows = db.all(
+        "SELECT l.id FROM web_login_links l LEFT JOIN web_link_uses u ON u.link_id = l.id "
+        "WHERE l.person_id = ? AND l.expires_at > ? AND u.id IS NULL",
+        (person_id, clock.utc_stamp()),
+    )
+    for row in rows:
+        db.insert("web_link_uses", link_id=row["id"], used_at=clock.utc_stamp())
+    return len(rows)
 
 
 def link_is_live(app: App, token: str) -> bool:
@@ -468,13 +487,26 @@ class IdentityMiddleware:
         if person is None:
             target = self.settings.signed_out_redirect
             if (
-                target
-                and self.settings.mode == "telegram"
+                self.settings.mode == "telegram"
                 and path == "/"
                 and method in ("GET", "HEAD")
                 and error in (NO_IDENTITY, INVALID_SESSION)
             ):
-                await RedirectResponse(target, status_code=303)(scope, receive, send)
+                # A message link's token is after "#", which only the browser can see: a page
+                # whose script posts it if there is one, and otherwise goes on to `target` (or,
+                # with none configured, stays as the refusal it is: 403).
+                nxt = safe_next(scope.get("query_string", b"").decode("latin-1"))
+                fallback = html.escape(target or "", quote=True)
+                page = _HASH_PAGE.format(
+                    action=html.escape(self.settings.root_path + "/", quote=True),
+                    next=html.escape(nxt, quote=True),
+                    fallback=fallback,
+                    more=f' or <a href="{fallback}">read about Tiffin</a>' if target else "",
+                    script=html.escape(self.settings.root_path + SIGNIN_SCRIPT_PATH, quote=True),
+                )
+                await HTMLResponse(
+                    page, status_code=200 if target else 403, headers={"X-Robots-Tag": "noindex"}
+                )(scope, receive, send)
                 return
             await _reject(scope, receive, send, error, mode=self.settings.mode)
             return
@@ -664,6 +696,20 @@ _REFUSED_PAGE = (
     "<h1>Not linked yet</h1><p>{says}</p></body></html>"
 )
 
+
+_HASH_PAGE = (
+    '<!doctype html><html lang="en-GB"><head><meta charset="utf-8">'
+    '<meta name="viewport" content="width=device-width, initial-scale=1">'
+    '<meta name="robots" content="noindex"><meta name="referrer" content="same-origin">'
+    "<title>Opening Tiffin</title></head>"
+    '<body style="font:16px/1.5 system-ui,sans-serif;margin:2rem;max-width:36rem">'
+    "<h1>Opening Tiffin</h1>"
+    '<form method="post" action="{action}" id="go" data-fallback="{fallback}">'
+    '<input type="hidden" name="k" value="">'
+    '<input type="hidden" name="next" value="{next}">'
+    "</form><p>Send <code>/web</code> to your bot for a sign-in link{more}.</p>"
+    '<script src="{script}" defer></script></body></html>'
+)
 
 _CONFIRM_PAGE = (
     '<!doctype html><html lang="en-GB"><head><meta charset="utf-8">'

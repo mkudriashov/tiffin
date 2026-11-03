@@ -16,13 +16,17 @@ _NEXT = re.compile(r'name="next" value="([^"]*)"')
 def sign_in(client: TestClient, link: str) -> Response:
     """Open `link`, then post the page's form. Returns the form's response (303 on success,
     unfollowed), or the page itself when it is not a sign-in page."""
-    page = client.get(link, follow_redirects=False)
+    page = client.get(link.split("#", 1)[0], follow_redirects=False)  # a browser never sends "#..."
     found = _TOKEN.search(page.text)
-    if page.status_code != 200 or found is None:
+    hashed = re.search(r"#k=([A-Za-z0-9_-]+)", link)
+    token = (
+        found.group(1) if found else (hashed.group(1) if hashed and 'id="go"' in page.text else "")
+    )
+    if page.status_code not in (200, 403) or not token or 'id="go"' not in page.text:
         return page
     action = re.search(r'<form[^>]*method="post" action="([^"]*)"', page.text)
     assert action is not None
-    data = {"k": found.group(1)}
+    data = {"k": token}
     nxt = _NEXT.search(page.text)
     if nxt is not None and nxt.group(1):
         data["next"] = html.unescape(nxt.group(1))
