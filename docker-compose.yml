@@ -1,11 +1,12 @@
 # A hardened example. Put the Telegram bot token (and, for the Claude CLI on a server, the output
 # of `claude setup-token`) in ./secrets/, mode 0600, then:
-#   docker compose run --rm tiffin tiffin init --web-mode proxy --web-origin https://tiffin.example.com
+#   docker compose run --rm tiffin tiffin setup
 #   docker compose up -d --build
 # The container's user (10010 here) must be able to read the secret files: `chown 10010 secrets/*`
 # or mode 0440 with a shared group. With an API provider, drop the claude_oauth_token lines.
 #
-# The data volume's tiffin.toml must say, for a proxy in another container:
+# For a proxy in another container, choose that in setup's web step (or pass --web-listen network),
+# which writes into the data volume's tiffin.toml:
 #   [web]
 #   host = "0.0.0.0"
 #   bind_trusted_network = true

@@ -10,14 +10,25 @@ Set `TIFFIN_HOME` to an absolute directory owned by the service account. By defa
 
 The `Dockerfile` builds from pinned base images (version and digest) and installs the Claude CLI at a pinned version. The image runs as a non-root user (build argument `TIFFIN_UID`, default 10010; `user:` in compose overrides it), keeps `HOME` and `TMPDIR` under `/data`, writes no bytecode, works with a read-only root filesystem and a tmpfs `/tmp`, and starts `tiffin run` directly. Its health check (`python -m tiffin.healthcheck`) asks the page's own `<web.root_path>/api/health` over loopback, or reads the heartbeat when the page is off.
 
-`docker-compose.yml` is a hardened example: read-only root, all capabilities dropped, `no-new-privileges`, memory, CPU and process limits, log rotation, no published port, and secrets mounted as files. Create `secrets/telegram-token.txt` (and `secrets/claude-oauth-token.txt`, from `claude setup-token`, if the Claude CLI is your model; it is passed to the CLI as `TIFFIN_CLAUDE_OAUTH_TOKEN_FILE`), make them readable by the container user, then run the wizard against the volume and start the service:
+`docker-compose.yml` is a hardened example: read-only root, all capabilities dropped, `no-new-privileges`, memory, CPU and process limits, log rotation, no published port, and secrets mounted as files. Create `secrets/telegram-token.txt` (and `secrets/claude-oauth-token.txt`, from `claude setup-token`, if the Claude CLI is your model; it is passed to the CLI as `TIFFIN_CLAUDE_OAUTH_TOKEN_FILE`), make them readable by the container user, then run setup against the volume and start the service:
 
 ```sh
-docker compose run --rm tiffin tiffin init --web-mode proxy --web-origin https://tiffin.example.com
+docker compose run --rm tiffin tiffin setup
 docker compose up -d --build
 ```
 
-A proxy in another container reaches the page over the compose network, so the volume's `tiffin.toml` needs `host = "0.0.0.0"` and `bind_trusted_network = true` under `[web]`. Do that only when that network is reachable by the proxy alone, and never publish the port. Any secret can also be supplied as a file with `TIFFIN_<NAME>_FILE` (for example `TIFFIN_TELEGRAM_TOKEN_FILE=/run/secrets/telegram_token`). Run one container per data volume and per bot token; stop an old poller on another machine first. Set `hosting.records` and `hosting.web_front` in `tiffin.toml` so the consent text names the machine and anything the page passes through. Everything above has been checked as text only; build and start it on a Linux host before relying on it.
+Setup sees the bot token in `TIFFIN_TELEGRAM_TOKEN_FILE`, checks it with Telegram and uses it from there (it does not copy it into the volume). It knows it runs in a container, so for a web page behind a proxy it suggests listening on the container's network. Without a terminal, give the answers as flags:
+
+```sh
+docker compose run --rm -T tiffin tiffin setup --non-interactive --owner-name Alex \
+  --timezone Europe/London --model-provider none --web-mode proxy \
+  --web-origin https://tiffin.example.com --web-listen network \
+  --hosting-records "a rented server in the EU, run by Alex" --pair later
+```
+
+`--pair later` prints a one-time code to send to the bot once the service is running (the running Tiffin pairs the chat when it arrives); without it, setup waits five minutes for the code. A missing or wrong answer stops setup with exit code 2 before anything is written, and a run on an existing volume changes only the parts its flags name. Run `docker compose run --rm tiffin tiffin setup` again at any time to see what is set and change one part.
+
+A proxy in another container reaches the page over the compose network, so the volume's `tiffin.toml` needs `host = "0.0.0.0"` and `bind_trusted_network = true` under `[web]`; setup writes both when you say the web server runs in another container (`--web-listen network`). Do that only when that network is reachable by the proxy alone, and never publish the port. Any secret can also be supplied as a file with `TIFFIN_<NAME>_FILE` (for example `TIFFIN_TELEGRAM_TOKEN_FILE=/run/secrets/telegram_token`). Run one container per data volume and per bot token; stop an old poller on another machine first. Set `hosting.records` and `hosting.web_front` in `tiffin.toml` so the consent text names the machine and anything the page passes through. Everything above has been checked as text only; build and start it on a Linux host before relying on it.
 
 The compose example restarts the container with `on-failure:5`, not `unless-stopped`. If another copy of the same Telegram bot is already polling (an older install still running), Tiffin exits straight away each time, and an unlimited restart would loop and begin its jobs again on every start. Five tries, then it stays stopped and says why in its logs. Stop the old copy first.
 
@@ -35,7 +46,11 @@ At start `tiffin run` creates `home` and `tmp` under `TIFFIN_HOME` (the image se
 
 ## Missed messages
 
-`tiffin status` prints a `missed_slots` list: each expected morning or evening message that has not gone 15 minutes after its time, with the job, the slot, the person's internal id, the due time (UTC), a reason (`no_run`, `run_failed`, `stuck`, `ok_without_message`, `send_failed`) and `late` (still inside its catch-up window) or `missed` (past it). Empty means every message went or was withheld on purpose: a job that had nothing to say records a skipped run with its reason, a paused person and a quiet-window drop leave a dropped message, and those are never listed. `tiffin doctor` shows the same as "expected messages" (red for missed, warning for late). A monitor can run `docker compose exec -T tiffin tiffin status` and alert when `missed_slots` is not empty.
+`tiffin status` prints a `missed_slots` list (in its JSON, which it prints whenever its output is not a terminal, and always with `--json`; on a terminal it shows the same as a summary): each expected morning or evening message that has not gone 15 minutes after its time, with the job, the slot, the person's internal id, the due time (UTC), a reason (`no_run`, `run_failed`, `stuck`, `ok_without_message`, `send_failed`) and `late` (still inside its catch-up window) or `missed` (past it). Empty means every message went or was withheld on purpose: a job that had nothing to say records a skipped run with its reason, a paused person and a quiet-window drop leave a dropped message, and those are never listed. `tiffin doctor` shows the same as "expected messages" (red for missed, warning for late). A monitor can run `docker compose exec -T tiffin tiffin status --json` and alert when `missed_slots` is not empty.
+
+## Output for scripts
+
+On a terminal, `tiffin doctor` and `tiffin status` group what they show under headings, mark each line with a tick, a cross or an exclamation mark, align the columns and use colour; `NO_COLOR` (any non-empty value) turns the colour off and `TERM=dumb` the marks. When the output is not a terminal (a pipe, a file, `docker exec` without `-t`), they print what they always have: `tiffin status` its JSON, and `tiffin doctor` one line per check, `pass`, `warn` or `fail`, the check's name padded to 16 characters and its detail, then `doctor: ok` or `doctor: FAIL`. `tiffin doctor --json` prints `{"ok", "strict", "checks": [{"name", "status", "detail"}]}`. The exit codes are the same in every form: `tiffin doctor` exits 1 when a check fails (or, with `--strict`, warns) and 0 otherwise; the other commands exit 2 on a configuration problem and 3 when another Tiffin holds the lock.
 
 ## Backups and upgrades
 

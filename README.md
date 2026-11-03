@@ -34,25 +34,31 @@ Install Python 3.14 and [uv](https://docs.astral.sh/uv/), then from this checkou
 
 ```sh
 uv sync
-uv run tiffin init
-uv run tiffin catalogue build
-uv run tiffin doctor
+uv run tiffin setup
 ```
 
-The wizard walks through creating your bot with @BotFather, pairing your Telegram chat, choosing a country and model, and optionally connecting intervals.icu, the web page and retailer links. Start the service as instructed by the wizard and send `/start` to your bot.
+`tiffin setup` is a guided set-up in eight steps: your folder and time zone, who will use Tiffin, your Telegram bot (made with @BotFather, checked with Telegram, then your chat paired by a one-time code), an AI model or none, intervals.icu for training data, the optional web page, supermarket products, and a review before anything is saved. It checks each answer as it goes, never shows a token or key, loads the food list, runs the same checks as `tiffin doctor` and ends with what to do next: start Tiffin with `uv run tiffin run` and send `/start` to your bot.
+
+Run `tiffin setup` again at any time: it shows what is set and changes one part, such as `uv run tiffin setup web`, keeping everything else in `tiffin.toml` as it was. `tiffin init` and `tiffin connect <part>` run the same set-up.
 
 The catalogue supplies typical unbranded packs. To use a product you buy instead, open a shopping line on the page and choose **Use my product**, or run `uv run tiffin product add chicken_breast "Chicken breast 500 g" --pack-g 500`. Price, shop and HTTPS link are optional. Your product is used on future lists; each person's entries are private.
 
 The bundled food data and optional retailer readers are UK based. GB is the supported country for the food catalogue; other country settings are accepted, with a setup warning, but their food names and packs are not validated.
 
-For Docker, initialise the persistent volume, then start the service:
+For Docker, set up the persistent volume, then start the service:
 
 ```sh
-docker compose run --rm tiffin uv run --no-sync tiffin init --non-interactive --owner-name Alex --country GB --timezone Europe/London --web-mode off --model-provider none
+docker compose run --rm tiffin tiffin setup
 docker compose up -d --build
 ```
 
-Supply the bot token through `TIFFIN_TELEGRAM_TOKEN` before running the non-interactive Docker command. It waits for a pairing code sent to the bot. See [Docker setup](docs/deployment.md#docker) for details. The image contains the Claude CLI (give it a token as the compose file explains), or choose an API provider, a reachable local model or `none`. Shopping lists still work from the catalogue.
+For a scripted install, give the answers as flags and the secrets as environment variables, and nothing is asked:
+
+```sh
+docker compose run --rm tiffin tiffin setup --non-interactive --owner-name Alex --timezone Europe/London --web-mode off --model-provider none --pair later
+```
+
+The compose file passes the bot token in as `TIFFIN_TELEGRAM_TOKEN_FILE`. With `--pair later` setup prints a one-time code to send to your bot once the service is running; without it, setup waits for that code. A missing or wrong answer stops it with exit code 2 before anything is written. See [Docker setup](docs/deployment.md#docker) for details. The image contains the Claude CLI (give it a token as the compose file explains), or choose an API provider, a reachable local model or `none`. Shopping lists still work from the catalogue.
 
 ## Requirements
 
@@ -62,7 +68,9 @@ Python 3.14, uv, a Telegram bot token and a writable data directory are required
 
 Your database, logs, exports, backups and secret files stay under `TIFFIN_HOME` (or your platform's user data directory). Telegram receives the messages you send to and receive from your bot. The chosen AI provider receives a person's relevant data only while that person has granted consent for that provider. intervals.icu receives authorised API requests and returns activity and wellness data only if you connect it. The optional shop reader can access retailer sites when enabled. See [privacy](docs/privacy.md) for detail.
 
-`tiffin init` writes local overrides to `TIFFIN_HOME/tiffin.toml`; the complete defaults are packaged in `config/defaults.toml`. Secrets belong in `TIFFIN_HOME/secrets/` or supported environment variables, never in TOML. See [configuration](docs/configuration.md) and [model providers](docs/models.md).
+`tiffin setup` writes local overrides to `TIFFIN_HOME/tiffin.toml`, changing only the lines it sets and keeping a copy of the previous file under `state/setup/`; the complete defaults are packaged in `config/defaults.toml`. Secrets belong in `TIFFIN_HOME/secrets/` (files only you can read) or supported environment variables, never in TOML. See [configuration](docs/configuration.md) and [model providers](docs/models.md).
+
+`tiffin doctor` and `tiffin status` show marks, headings and colour on a terminal (`NO_COLOR` turns the colour off) and plain text otherwise. Scripts and monitors keep reading what they always have: `tiffin status` prints JSON whenever its output is not a terminal (and always with `--json`), and `tiffin doctor` prints one `pass|warn|fail` line per check (or JSON with `--json`), with exit code 1 when a check fails.
 
 ## Guides
 

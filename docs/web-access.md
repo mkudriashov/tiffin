@@ -1,10 +1,10 @@
 # Web access
 
-The web page is optional. It binds to `127.0.0.1` by default; `web.host` stays a loopback address unless you opt in with `web.bind_trusted_network = true`, for a container whose network only your reverse proxy can reach (see the last section). The default production port is 7788 and the default mount path is `/tiffin`. For ordinary local access, choose Telegram sign-in in `tiffin init`, open the local origin in a browser and send `/web` to your paired bot. The bot returns a five-minute, one-use link; the page then uses a device session. `tiffin devices` lists sessions and `tiffin devices --sign-out ID` revokes one.
+The web page is optional. It binds to `127.0.0.1` by default; `web.host` stays a loopback address unless you opt in with `web.bind_trusted_network = true`, for a container whose network only your reverse proxy can reach (see the last section). The default production port is 7788 and the default mount path is `/tiffin`. For ordinary local access, choose "On this computer only" in `tiffin setup web`, open the local origin in a browser and send `/web` to your paired bot. The bot returns a five-minute, one-use link; the page then uses a device session. `tiffin devices` lists sessions and `tiffin devices --sign-out ID` revokes one.
 
 Tailscale Serve can expose the loopback page to your tailnet. In header identity mode, the trusted Serve proxy supplies `Tailscale-User-Login`; bind each person's login with `tiffin link-tailscale owner alex@example.com` or `tiffin link-tailscale partner sam@example.com`. Binding the same login again transfers access to the newly named person. Configure Serve so clients cannot supply that header themselves. Do not expose header mode through a proxy that forwards client-supplied identity headers.
 
-For a small server with a domain, configure `tiffin init --web-mode proxy --web-origin https://tiffin.example.com` (replace the example domain with your own). Keep tiffin bound to `127.0.0.1`. A Caddy site on the same server can use:
+For a small server with a domain, run `tiffin setup web` and choose your own web address, or script it with `tiffin setup web --non-interactive --web-mode proxy --web-origin https://tiffin.example.com` (replace the example domain with your own; add `--web-root-path /tiffin` when the page shares the address). Setup also asks the words the consent message uses for where the records are held and what the page passes through (`--hosting-records`, `--hosting-web-front`). Keep tiffin bound to `127.0.0.1`. A Caddy site on the same server can use:
 
 ```caddyfile
 tiffin.example.com {
@@ -20,7 +20,7 @@ For a new remote deployment, run `uv run --no-sync python tools/check_web_access
 
 ## Sign-in details
 
-- **Telegram sign-in is the default.** `web.identity_mode = "header"` is refused unless `web.trusted_header_proxy = true`, which says that a proxy you control sets the login header and strips any copy a client sends. `tiffin init --web-mode tailscale` sets both.
+- **Telegram sign-in is the default.** `web.identity_mode = "header"` is refused unless `web.trusted_header_proxy = true`, which says that a proxy you control sets the login header and strips any copy a client sends. `tiffin setup web` with the Tailscale choice (`--web-mode tailscale`) sets both.
 - **The link opens a page with a button.** Opening `?k=...` shows a "Sign in on this device" page and spends nothing, so a chat app's link preview cannot use up the one use. The button posts the token back; only then is the device signed in. The page sends `Referrer-Policy: no-referrer`, is never cached and is not indexed.
 - **The cookie is `HttpOnly`, `Secure` on HTTPS, scoped to `web.root_path` and `SameSite=Lax`.** `Strict` would hide it from a page opened by a link in another app, so the page would look signed out. Writes still need a CSRF token signed to that session with a key the server keeps (`secrets/web-csrf-key`, made on first use) and the configured origin. No cookie carries the token, so another app on the same address cannot plant one. Public `/api/health` answers the status word only.
 - **A device lasts 90 days and is signed out after 14 days without a request.** Use is recorded at most every 12 hours (the `web_device_seen` ledger), and `tiffin devices` and the page's device list show only devices still in.

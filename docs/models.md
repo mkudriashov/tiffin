@@ -1,6 +1,6 @@
 # Model providers
 
-Set `[model] provider` through `tiffin init`, `tiffin connect model` or `tiffin.toml`. The API providers use `TIFFIN_MODEL_API_KEY` or `secrets/model-api-key.txt`; a local endpoint may need no key. `auth_style = "api-key"` supports compatible endpoints that require that header instead of bearer authentication.
+Set `[model] provider` through `tiffin setup model` (or `tiffin.toml`). Setup can check the model with one very short request, after saying what that may cost; `--model-test yes` does the same for a scripted set-up, which otherwise sends nothing. The API providers use `TIFFIN_MODEL_API_KEY` or `secrets/model-api-key.txt`; a local endpoint may need no key. `auth_style = "api-key"` supports compatible endpoints that require that header instead of bearer authentication.
 
 | Provider | Default model and key | Cost model |
 | --- | --- | --- |

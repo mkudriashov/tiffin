@@ -172,7 +172,8 @@ def render() -> str:
     lines = [
         "# Configuration reference",
         "",
-        "`tiffin init` writes only local overrides to `TIFFIN_HOME/tiffin.toml`. "
+        "`tiffin setup` writes only local overrides to `TIFFIN_HOME/tiffin.toml`, changing only "
+        "the lines it sets, and keeps a copy of the previous file under `state/setup/`. "
         "Unspecified keys use the packaged defaults below. Never put a token or API key in TOML; "
         "use `TIFFIN_HOME/secrets/` or the supported environment variable. "
         "This table is generated from `config/defaults.toml` and checked by a test.",
