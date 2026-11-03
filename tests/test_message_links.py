@@ -1,9 +1,9 @@
 """Links in the bot's messages open the page in one tap (3 Nov 2026).
 
 A menu link sent the partner to a sign-in page instead of the menu: a chat app opens links in
-its own browser, with its own cookies, and a session ends after 14 idle days. Each message's links now
-carry one sign-in token for the recipient, good for a week and one use; a signed-in device never
-spends it, and the ledger never holds it.
+its own browser, with its own cookies, and a session ends after 14 idle days. Each message's
+links now carry one sign-in token for the recipient, good for a week and one use; a signed-in
+device never spends it, and the ledger never holds it.
 """
 
 from __future__ import annotations
