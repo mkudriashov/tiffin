@@ -53,24 +53,48 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--env", choices=["dev", "prod"], help="instance mode (default: prod)")
     sub = p.add_subparsers(dest="cmd", required=True)
-    from .setup import add_arguments  # noqa: PLC0415
+    from .setup import SECTIONS, add_arguments  # noqa: PLC0415
 
-    init = sub.add_parser("init", help="set up this tiffin and pair your Telegram chat")
-    init.set_defaults(command="init")
+    setup = sub.add_parser(
+        "setup",
+        help="guided set-up: home, people, Telegram, AI model, training data, web page; "
+        "safe to run again to change one part",
+        description="A step-by-step set-up. Run it again at any time: it shows what is set and "
+        "lets you change one part. With --non-interactive it takes its answers from the flags "
+        "and environment variables, for scripts and containers.",
+    )
+    setup.add_argument(
+        "section",
+        nargs="?",
+        choices=sorted(SECTIONS),
+        help="go straight to one part (intervals is another name for training)",
+    )
+    setup.set_defaults(command="setup")
+    add_arguments(setup)
+    init = sub.add_parser("init", help="the same as tiffin setup (kept for existing scripts)")
+    init.set_defaults(command="init", section=None)
     add_arguments(init)
-    connect = sub.add_parser("connect", help="set up one connection again")
+    connect = sub.add_parser(
+        "connect", help="set up one connection again (the same as tiffin setup <part>)"
+    )
     connect.add_argument("target", choices=["telegram", "intervals", "model", "web"])
     connect.set_defaults(command="connect")
     add_arguments(connect)
     sub.add_parser("run", help="poll Telegram, run jobs and serve the configured page")
-    sub.add_parser("status", help="liveness and last runs as JSON")
+    status = sub.add_parser(
+        "status", help="liveness and last runs: a summary on a terminal, JSON otherwise"
+    )
+    status.add_argument(
+        "--json", action="store_true", help="always print JSON (what scripts and monitors read)"
+    )
     sub.add_parser("version")
     demo = sub.add_parser("demo", help="serve a throwaway example household locally")
     demo.add_argument("--telegram-transcript", type=Path, metavar="FILE")
     demo.add_argument("--port", type=int, default=7790)
-    doc = sub.add_parser("doctor", help="health checks; exit 1 on any red")
+    doc = sub.add_parser("doctor", help="health checks; exit 1 on any failure")
     doc.add_argument("--strict", action="store_true", help="warnings fail too")
     doc.add_argument("--offline", action="store_true", help="skip network connection checks")
+    doc.add_argument("--json", action="store_true", help="print the checks as JSON")
     devices = sub.add_parser("devices", help="list or sign out web devices")
     devices.add_argument("--sign-out", type=int, metavar="ID", help="sign out a device by list ID")
     pair = sub.add_parser("pair", help="print a one-time pairing code for a person")
@@ -277,57 +301,19 @@ def cmd_run(args: argparse.Namespace) -> int:
 
 
 def cmd_status(args: argparse.Namespace) -> int:
-    import datetime as dt  # noqa: PLC0415
-
-    from .clock import stamp  # noqa: PLC0415
-    from .heartbeat import Heartbeat, PidFile  # noqa: PLC0415
+    """JSON for scripts (no terminal, or --json), a summary for a person at a terminal."""
+    from . import status  # noqa: PLC0415
+    from .term import Style  # noqa: PLC0415
 
     app = _app_from_env(args.env)
-    paths = app.config.paths
-    hb = Heartbeat(paths.state, app.clock)
-    out: dict[str, Any] = {
-        "env": app.config.env,
-        "version": app.version,
-        "db": str(paths.db),
-        "db_exists": paths.db.exists(),
-        "heartbeat_age_s": hb.age_s(),
-        "pid": (PidFile(paths.state).read() or {}).get("pid"),
-    }
-    if paths.db.exists():
-        db = app.open_db()
-        try:
-            out["persons"] = [
-                {"slug": p.slug, "has_chat_id": p.chat_id is not None, "erased": p.erased}
-                for p in app.registry(db).active()
-            ]
-            out["last_runs"] = [
-                dict(r)
-                for r in db.all(
-                    "SELECT job, slot, person_id, status, detail FROM run_ledger "
-                    "ORDER BY started_at DESC LIMIT 10"
-                )
-            ]
-            from . import expected  # noqa: PLC0415
-            from .jobs import all_jobs  # noqa: PLC0415
-
-            # every expected morning and evening message that has not gone by its grace deadline:
-            # slot, internal person id and due time (UTC), a reason and `late` or `missed`.
-            # Empty when all is well. No names, no content.
-            out["missed_slots"] = [
-                m.as_dict()
-                for m in expected.missing(db, app.registry(db), all_jobs(app.config), app.clock)
-            ]
-            out["messages_out_24h"] = dict(
-                (r["status"], r["n"])
-                for r in db.all(
-                    "SELECT status, COUNT(*) AS n FROM messages_out "
-                    "WHERE created_at >= ? GROUP BY status",
-                    (stamp(app.clock.now_utc() - dt.timedelta(days=1)),),
-                )
-            )
-        finally:
-            db.close()
-    print(json.dumps(out, indent=1, default=str))
+    out, slugs = status.gather(app)
+    style = Style.detect(sys.stdout)
+    if getattr(args, "json", False) or not style.terminal:
+        print(status.json_text(out))
+        return 0
+    stale_s = int(app.config.get("ops.heartbeat_stale_s", 180))
+    for line in status.summary_lines(out, slugs, style, stale_s=stale_s):
+        print(line)
     return 0
 
 
@@ -962,12 +948,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             from .demo import run  # noqa: PLC0415
 
             return run(args)
-        if args.cmd == "init":
-            from .setup import run  # noqa: PLC0415
-
-            return run(args)
-        if args.cmd == "connect":
-            from .setup import run  # noqa: PLC0415
+        if args.cmd == "setup" or args.cmd == "init" or args.cmd == "connect":  # noqa: PLR1714
+            from .setup import run  # noqa: PLC0415 (one set-up; `init` and `connect` are its names)
 
             return run(args)
         if args.cmd == "status":
@@ -1012,19 +994,30 @@ def main(argv: Sequence[str] | None = None) -> int:
             try:
                 app = _app_from_env(args.env)
             except ConfigError as exc:
-                print(f"fail config          {exc}; fix tiffin.toml or run tiffin init")
-                return 1
-            return doctor.main(app, strict=args.strict, online=not args.offline)
+                broken = doctor.Check(
+                    "config", "red", f"{exc}; fix tiffin.toml or run tiffin setup"
+                )
+                return doctor.report([broken], strict=args.strict, as_json=args.json)
+            return doctor.main(app, strict=args.strict, online=not args.offline, as_json=args.json)
         if args.cmd == "version":
             print(__version__)
             return 0
     except ConfigError as e:
-        print(f"config error: {e}", file=sys.stderr)
+        print(_error_line("config error", e), file=sys.stderr)
         return 2
     except TiffinError as e:
-        print(f"error: {e}", file=sys.stderr)
+        print(_error_line("error", e), file=sys.stderr)
         return 1
     return 0
+
+
+def _error_line(kind: str, error: Exception) -> str:
+    """`config error: ...` as before; on a terminal, with a red cross in front."""
+    from .term import Style  # noqa: PLC0415
+
+    style = Style.detect(sys.stderr)
+    text = f"{kind}: {error}"
+    return style.line("fail", text) if style.terminal else text
 
 
 if __name__ == "__main__":

@@ -397,7 +397,10 @@ def load(
     root: Path | str | None = None,
     override: Path | str | None = None,
     environ: Mapping[str, str] | None = None,
+    extra: Mapping[str, Any] | None = None,
 ) -> Config:
+    """Packaged defaults, then tiffin.toml, then `extra` (settings not saved yet: `tiffin setup`
+    checks its answers this way before writing them), validated together."""
     environ = os.environ if environ is None else environ
     config_dir = REPO_ROOT / "config"
     data = _read_toml(config_dir / "defaults.toml")
@@ -407,6 +410,8 @@ def load(
     override_path = Path(override) if override else root_path / "tiffin.toml"
     if override_path.exists():
         data = deep_merge(data, _read_toml(override_path))
+    if extra:
+        data = deep_merge(data, extra)
     _validate(data)
     env = env or environ.get("TIFFIN_ENV") or str(data["env"].get("default", "prod"))
     if env not in ENVS:
@@ -456,6 +461,9 @@ def dump_toml(data: Mapping[str, Any]) -> str:
     return "\n".join(lines).strip() + "\n"
 
 
+_OVERLAY_HEADER = "# Local overrides for tiffin; packaged defaults hold the rest.\n"
+
+
 def update_override(path: Path, updates: Mapping[str, Any]) -> dict[str, Any]:
     """Deep-merge `updates` into the overlay at `path` and write it back.
 
@@ -465,6 +473,117 @@ def update_override(path: Path, updates: Mapping[str, Any]) -> dict[str, Any]:
     current = _read_toml(path) if path.exists() else {}
     merged = deep_merge(current, updates)
     path.parent.mkdir(parents=True, exist_ok=True)
-    header = "# Local overrides for tiffin; packaged defaults hold the rest.\n"
-    path.write_text(header + dump_toml(merged), encoding="utf-8")
+    path.write_text(_OVERLAY_HEADER + dump_toml(merged), encoding="utf-8")
     return merged
+
+
+_TABLE_LINE = re.compile(r"^\s*\[\s*([A-Za-z0-9_-]+(?:\s*\.\s*[A-Za-z0-9_-]+)*)\s*\]\s*(?:#.*)?$")
+_KEY_LINE = re.compile(r"^(\s*)([A-Za-z0-9_-]+)\s*=\s*(.*)$")
+
+
+def _flatten(
+    node: Mapping[str, Any], table: tuple[str, ...] = ()
+) -> list[tuple[tuple[str, ...], str, Any]]:
+    out: list[tuple[tuple[str, ...], str, Any]] = []
+    for key, value in node.items():
+        if isinstance(value, Mapping):
+            out.extend(_flatten(value, (*table, key)))
+        else:
+            out.append((table, key, value))
+    return out
+
+
+def _trailing_comment(rest: str) -> str:
+    """The `# note` after a one-line value, so a changed line keeps its comment."""
+    for position, char in enumerate(rest):
+        if char != "#":
+            continue
+        try:
+            tomllib.loads("x = " + rest[:position])
+        except tomllib.TOMLDecodeError:
+            continue
+        return "  " + rest[position:].strip()
+    return ""
+
+
+def _edited_lines(text: str, updates: Mapping[str, Any]) -> str | None:
+    """`text` with each updated key's line replaced, or added to its table, or None when a
+    line-by-line edit is not safe (a value that continues onto the next line)."""
+    lines = text.splitlines()
+    spans: dict[tuple[str, ...], list[int]] = {(): [0, len(lines)]}
+    current: tuple[str, ...] = ()
+    for index, line in enumerate(lines):
+        if line.lstrip().startswith("[["):
+            return None
+        match = _TABLE_LINE.match(line)
+        if match:
+            spans[current][1] = index
+            current = tuple(part.strip() for part in match.group(1).split("."))
+            if current in spans:
+                return None
+            spans[current] = [index + 1, len(lines)]
+    for table, key, value in _flatten(updates):
+        written = f"{key} = {_toml_value(value)}"
+        span = spans.get(table)
+        if span is None:
+            if lines and lines[-1].strip():
+                lines.append("")
+            lines += [f"[{'.'.join(table)}]", written]
+            spans[table] = [len(lines) - 1, len(lines)]
+            continue
+        start, end = span
+        found = None
+        for index in range(start, end):
+            match = _KEY_LINE.match(lines[index])
+            if match and match.group(2) == key:
+                found = index
+                rest = match.group(3).strip()
+                if rest.startswith(('"""', "'''")) or (
+                    rest.startswith("[") and rest.count("[") != rest.count("]")
+                ):
+                    return None
+                lines[index] = match.group(1) + written + _trailing_comment(rest)
+                break
+        if found is not None:
+            continue
+        # after the table's last setting, so it never lands under a comment that introduces
+        # the next table
+        keys = [i for i in range(start, end) if _KEY_LINE.match(lines[i])]
+        at = keys[-1] + 1 if keys else start
+        lines.insert(at, written)
+        for other in spans.values():
+            if other[0] >= at and other is not span:
+                other[0] += 1
+            if other[1] >= at:
+                other[1] += 1
+    return "\n".join(lines) + "\n"
+
+
+def edit_override(path: Path, updates: Mapping[str, Any]) -> dict[str, Any]:
+    """Set `updates` in the overlay at `path`, changing only the lines they name.
+
+    Comments, blank lines and every other setting stay as they are, so a person's own notes in
+    tiffin.toml survive `tiffin setup`. When a line-by-line edit is not safe (a value spread over
+    several lines, a table written twice, an inline table) the file is written out whole, as
+    `update_override` does. Either way the new text is read back and must hold exactly the old
+    settings with `updates` merged in; otherwise nothing is written and ConfigError is raised.
+    """
+    old_text = path.read_text(encoding="utf-8") if path.exists() else ""
+    try:
+        current = tomllib.loads(old_text)
+    except tomllib.TOMLDecodeError as e:
+        raise ConfigError(f"config file invalid: {path}: {e}") from None
+    wanted = deep_merge(current, updates)
+    text = _edited_lines(old_text, updates) if old_text.strip() else None
+    try:
+        if text is None or tomllib.loads(text) != wanted:
+            text = None
+    except tomllib.TOMLDecodeError:
+        text = None
+    if text is None:
+        text = _OVERLAY_HEADER + dump_toml(wanted)
+        if tomllib.loads(text) != wanted:
+            raise ConfigError(f"could not write {path} safely; nothing was changed")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    return wanted

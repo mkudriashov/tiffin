@@ -72,13 +72,23 @@ class Clock:
 
 
 def detected_timezone() -> str:
-    """Best available local zone name for an interactive setup prompt."""
+    """Best available local zone name for an interactive setup prompt: TZ, then the zone
+    /etc/localtime points at (Linux and macOS), then what Python knows, then Europe/London."""
     from_env = os.environ.get("TZ")
     if from_env:
         try:
             ZoneInfo(from_env)
             return from_env
-        except ZoneInfoNotFoundError:
+        except ZoneInfoNotFoundError, ValueError:
+            pass
+    target = os.path.realpath("/etc/localtime") if os.name != "nt" else ""
+    name = target.rsplit("zoneinfo/", 1)[1] if "zoneinfo/" in target else ""
+    # servers and containers keep UTC whatever the household's zone, so UTC says nothing
+    if name and name.removeprefix("Etc/") not in ("UTC", "UCT", "Universal", "Zulu", "GMT"):
+        try:
+            ZoneInfo(name)
+            return name
+        except ZoneInfoNotFoundError, ValueError:
             pass
     local = dt.datetime.now().astimezone().tzinfo
     key = getattr(local, "key", None)

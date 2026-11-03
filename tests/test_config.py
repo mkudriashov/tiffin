@@ -179,3 +179,84 @@ def test_update_override_merges_rather_than_replacing(tmp_path) -> None:
     data = tomllib.loads(path.read_text(encoding="utf-8"))
     assert data["persons"]["owner"]["display_name"] == "Alex"
     assert data["persons"]["partner"]["display_name"] == "Sam"
+
+
+HAND_WRITTEN = """\
+# My Tiffin, on the small server
+[web]
+host = "0.0.0.0"   # the proxy is another container
+root_path = "/tiffin"
+
+# where people sign in
+[persons.owner]
+display_name = "Alex"
+"""
+
+
+def test_edit_override_changes_only_the_lines_it_names(tmp_path) -> None:
+    """`tiffin setup` keeps a person's own notes: comments, blank lines and the order stay."""
+    from tiffin.config import edit_override
+
+    path = tmp_path / "tiffin.toml"
+    path.write_text(HAND_WRITTEN, encoding="utf-8")
+    edit_override(path, {"web": {"root_path": "", "origin": "https://tiffin.example.com"}})
+    assert path.read_text(encoding="utf-8") == HAND_WRITTEN.replace(
+        'root_path = "/tiffin"', 'root_path = ""\norigin = "https://tiffin.example.com"'
+    )
+
+
+def test_edit_override_keeps_a_changed_line_s_comment_and_adds_new_tables(tmp_path) -> None:
+    import tomllib
+
+    from tiffin.config import edit_override
+
+    path = tmp_path / "tiffin.toml"
+    path.write_text(HAND_WRITTEN, encoding="utf-8")
+    edit_override(path, {"web": {"host": "127.0.0.1"}, "model": {"provider": "none"}})
+    text = path.read_text(encoding="utf-8")
+    assert 'host = "127.0.0.1"  # the proxy is another container' in text
+    assert text.endswith('\n[model]\nprovider = "none"\n')
+    assert tomllib.loads(text)["persons"]["owner"]["display_name"] == "Alex"
+
+
+@pytest.mark.parametrize(
+    "awkward",
+    [
+        'web = { root_path = "/tiffin" }\n',  # an inline table
+        '[shop]\nretailers = [\n  "tesco",\n]\n[web]\nroot_path = "/tiffin"\n',  # a long list
+        '[web]\nroot_path = "/tiffin"\n[web.extra]\n[web]\n',  # a table twice: not TOML at all
+    ],
+)
+def test_edit_override_writes_the_whole_file_when_a_line_edit_is_not_safe(
+    tmp_path, awkward: str
+) -> None:
+    import tomllib
+
+    from tiffin.config import edit_override
+
+    path = tmp_path / "tiffin.toml"
+    path.write_text(awkward, encoding="utf-8")
+    try:
+        before = tomllib.loads(awkward)
+    except tomllib.TOMLDecodeError:
+        with pytest.raises(ConfigError, match="config file invalid"):
+            edit_override(path, {"web": {"root_path": ""}})
+        assert path.read_text(encoding="utf-8") == awkward, "nothing written"
+        return
+    edit_override(path, {"web": {"root_path": "", "enabled": False}, "shop": {"retailers": []}})
+    after = tomllib.loads(path.read_text(encoding="utf-8"))
+    expected = cfg.deep_merge(
+        before, {"web": {"root_path": "", "enabled": False}, "shop": {"retailers": []}}
+    )
+    assert after == expected
+
+
+def test_edit_override_starts_a_new_file_with_its_header(tmp_path) -> None:
+    from tiffin.config import edit_override
+
+    path = tmp_path / "home" / "tiffin.toml"
+    edit_override(path, {"env": {"tz": "Europe/London"}})
+    assert path.read_text(encoding="utf-8") == (
+        "# Local overrides for tiffin; packaged defaults hold the rest.\n"
+        '[env]\ntz = "Europe/London"\n'
+    )

@@ -1,34 +1,61 @@
-"""A new laptop can pair its chat without asking for a numeric Telegram ID."""
+"""What `tiffin init` always did keeps working, now that it runs `tiffin setup`.
+
+A new laptop pairs its chat without asking for a numeric Telegram ID; the country sets the units
+and a catalogue-only shop; a proxy set-up uses Telegram sign-in at its public address. These are
+the scripted forms the README and the Docker notes have printed since the first release.
+"""
 
 from __future__ import annotations
 
-import argparse
 from pathlib import Path
 
-from tiffin import persons, setup
-from tiffin.app import App
-from tiffin.cli import main
+import pytest
+
+from tiffin import doctor, persons, setup
 from tiffin.config import load
 from tiffin.db import Db
-from tiffin.secrets import Secrets
+
+from .wizard import CHAT_ID, GOOD_TOKEN, OWNER_CODE, Keyboard, World, deps, predictable_codes
+from .wizard import setup as run_setup
 
 
-def test_country_sets_units_and_catalogue_only_shop(tmp_path: Path, capsys) -> None:
-    args = argparse.Namespace(
-        owner_name="Alex",
-        weight_unit=None,
-        height_unit=None,
-        timezone="Europe/London",
-        country="FR",
-        currency=None,
-        product_links=None,
-        retailers=None,
-        partner="no",
-        non_interactive=True,
-        env="dev",
+@pytest.fixture(autouse=True)
+def stand_ins(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(doctor, "_listening", lambda port: False)
+    predictable_codes(monkeypatch)
+
+
+def test_country_sets_units_and_catalogue_only_shop(tmp_path: Path, frozen_clock) -> None:
+    keys = Keyboard([])
+    code = run_setup(
+        [
+            "--env",
+            "dev",
+            "init",
+            "--non-interactive",
+            "--owner-name",
+            "Alex",
+            "--timezone",
+            "Europe/London",
+            "--country",
+            "FR",
+            "--partner",
+            "no",
+            "--web-mode",
+            "off",
+            "--owner-chat-id",
+            "1000001",
+            "--no-catalogue",
+        ],
+        deps(
+            World(),
+            keys,
+            frozen_clock,
+            environ={"TIFFIN_HOME": str(tmp_path), "TIFFIN_TELEGRAM_TOKEN_DEV": GOOD_TOKEN},
+        ),
     )
-    setup._household(tmp_path, args)
-    assert "UK CoFID data" in capsys.readouterr().out
+    assert code == 0, keys.screen
+    assert "UK CoFID data" in keys.screen
     assert setup.ZONE_COUNTRY["Europe/Paris"] == "FR"
     conf = load("dev", root=tmp_path, environ={})
     assert conf.get("env.country") == "FR"
@@ -36,14 +63,23 @@ def test_country_sets_units_and_catalogue_only_shop(tmp_path: Path, capsys) -> N
     assert conf.get("shop.retailers") == [] and conf.get("chrome.shop_refresh_enabled") is False
 
 
-def test_proxy_setup_uses_telegram_identity_and_public_origin(tmp_path: Path) -> None:
-    args = argparse.Namespace(
-        web_mode="proxy",
-        web_origin="https://tiffin.example.com",
-        non_interactive=True,
-        env="dev",
+def test_proxy_setup_uses_telegram_identity_and_public_origin(tmp_path: Path, frozen_clock) -> None:
+    keys = Keyboard([])
+    code = run_setup(
+        [
+            "--env",
+            "dev",
+            "connect",
+            "web",
+            "--non-interactive",
+            "--web-mode",
+            "proxy",
+            "--web-origin",
+            "https://tiffin.example.com",
+        ],
+        deps(World(), keys, frozen_clock, environ={"TIFFIN_HOME": str(tmp_path)}),
     )
-    setup._web(tmp_path, args)
+    assert code == 0, keys.screen
     config = load("dev", root=tmp_path, environ={})
     assert config.get("web.identity_mode") == "telegram"
     assert config.get("web.origin") == "https://tiffin.example.com"
@@ -51,65 +87,37 @@ def test_proxy_setup_uses_telegram_identity_and_public_origin(tmp_path: Path) ->
     assert config.get("web.host") == "127.0.0.1"
 
 
-class Bot:
-    def __init__(self, token: str, **kwargs):
-        assert token == "example-token"
-
-    def get_me(self):
-        return {"username": "example_tiffin_bot"}
-
-    def get_updates(self, offset: int, timeout_s: int):
-        return (
-            [
-                {
-                    "update_id": 1,
-                    "message": {"chat": {"id": 123456, "type": "private"}, "text": "AAAA-AAAA"},
-                }
-            ]
-            if offset <= 1
-            else []
-        )
-
-
 def test_noninteractive_init_pairs_owner_and_keeps_token_out_of_config(
-    tmp_path: Path, monkeypatch, frozen_clock
+    tmp_path: Path, frozen_clock
 ) -> None:
-    monkeypatch.setattr(setup, "TelegramApi", Bot)
-    monkeypatch.setattr(
-        setup,
-        "_app",
-        lambda home, env=None: App(
-            load(env, root=home, environ={}), Secrets(home / "secrets"), clock=frozen_clock
-        ),
-    )
-    monkeypatch.setattr(persons._secrets, "choice", lambda _letters: "A")
     home = tmp_path / "home"
-    assert (
-        main(
-            [
-                "init",
-                "--home",
-                str(home),
-                "--non-interactive",
-                "--telegram-token",
-                "example-token",
-                "--owner-name",
-                "Alex",
-                "--model-provider",
-                "none",
-                "--web-mode",
-                "local",
-            ]
-        )
-        == 0
+    keys = Keyboard([])
+    code = run_setup(
+        [
+            "init",
+            "--home",
+            str(home),
+            "--non-interactive",
+            "--telegram-token",
+            GOOD_TOKEN,
+            "--owner-name",
+            "Alex",
+            "--model-provider",
+            "none",
+            "--web-mode",
+            "local",
+            "--no-catalogue",
+        ],
+        deps(World(sent=[OWNER_CODE]), keys, frozen_clock),
     )
+    assert code == 0, keys.screen
     config = load(root=home, environ={})
     assert config.get("web.identity_mode") == "telegram"
     assert config.get("web.origin") == "http://127.0.0.1:7788"
-    assert "example-token" not in (home / "tiffin.toml").read_text(encoding="utf-8")
+    assert GOOD_TOKEN not in (home / "tiffin.toml").read_text(encoding="utf-8")
     assert (home / "secrets" / "telegram-token.txt").read_text(
         encoding="utf-8"
-    ).strip() == "example-token"
+    ).strip() == GOOD_TOKEN
     with Db.open(home / "tiffin.db", clock=frozen_clock) as db:
-        assert persons.PersonRegistry(db, config).admin().chat_id == 123456
+        assert persons.PersonRegistry(db, config).admin().chat_id == CHAT_ID
         assert db.state_get("update_offset") == "2"

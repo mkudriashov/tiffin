@@ -93,11 +93,32 @@ def test_a_forged_login_header_gets_nothing_in_the_default_mode(
     assert response.status_code == 403
 
 
-def test_tailscale_setup_declares_its_proxy(tmp_path: Path) -> None:
-    from tiffin import setup
+def test_tailscale_setup_declares_its_proxy(tmp_path: Path, frozen_clock) -> None:
+    """Asked for Tailscale, setup writes header sign-in together with the proxy that the header
+    mode needs, so the configuration loads. (This read the setup source for a string until the
+    set-up became a wizard; now it runs it.)"""
+    from tiffin.config import load
 
-    source = Path(setup.__file__).read_text(encoding="utf-8")
-    assert '"trusted_header_proxy": mode == "tailscale"' in source
+    from .wizard import Keyboard, World, deps
+    from .wizard import setup as run_setup
+
+    keys = Keyboard([])
+    code = run_setup(
+        [
+            "setup",
+            "web",
+            "--non-interactive",
+            "--web-mode",
+            "tailscale",
+            "--web-origin",
+            "https://tiffin.example.ts.net",
+        ],
+        deps(World(), keys, frozen_clock, environ={"TIFFIN_HOME": str(tmp_path)}),
+    )
+    assert code == 0, keys.screen
+    config = load(root=tmp_path, environ={})
+    assert config.get("web.identity_mode") == "header"
+    assert config.get("web.trusted_header_proxy") is True
 
 
 # -- the confirm page ----------------------------------------------------------------------------
