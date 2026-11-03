@@ -167,6 +167,11 @@ def check_fence(request: Request, body: Mapping[str, Any], allowed: set[str]) ->
         )
     origin = request.headers.get("origin")
     expected = str(request.app.state.tiffin.config.get("web.origin", ""))
+    site = request.headers.get("sec-fetch-site", "")
+    # Safari sends "Origin: null" under a no-referrer policy.
+    # The browser's own Sec-Fetch-Site cannot be forged by a page.
+    if origin == "null" and site == "same-origin":
+        origin = None
     if origin and expected and origin.rstrip("/") != expected.rstrip("/"):
         raise HTTPException(status_code=403, detail="bad origin")
     if request.headers.get("sec-fetch-site", "") == "cross-site":

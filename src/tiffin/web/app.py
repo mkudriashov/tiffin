@@ -35,7 +35,7 @@ CSP = (
 )
 SECURITY_HEADERS = {
     "Content-Security-Policy": CSP,
-    "Referrer-Policy": "no-referrer",
+    "Referrer-Policy": "same-origin",
     "X-Content-Type-Options": "nosniff",
     "Cache-Control": "private, no-store",
 }

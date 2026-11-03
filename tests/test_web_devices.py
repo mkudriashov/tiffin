@@ -31,7 +31,7 @@ def test_link_expires_and_is_single_use(config, fixture_db, two_persons, frozen_
     app = _app(config, fixture_db, frozen_clock)
     owner = app.registry(fixture_db).require("owner")
     expired = issue_login_link(app, fixture_db, owner).split("k=", 1)[1]
-    frozen_clock.advance(minutes=6)
+    frozen_clock.advance(minutes=16)
     assert consume_login_link(app, expired) is None
     live = issue_login_link(app, fixture_db, owner).split("k=", 1)[1]
     person, session = consume_login_link(app, live) or (None, "")

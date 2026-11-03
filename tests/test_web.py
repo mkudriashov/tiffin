@@ -389,7 +389,7 @@ def test_page_and_static_and_headers(client) -> None:
     assert page.status_code == 200 and b"<base href=" in page.content
     assert page.headers["content-security-policy"].startswith("default-src 'self'")
     assert "connect-src 'self'" in page.headers["content-security-policy"]
-    assert page.headers["referrer-policy"] == "no-referrer"
+    assert page.headers["referrer-policy"] == "same-origin"
     assert page.headers["x-content-type-options"] == "nosniff"
     assert page.headers["cache-control"] == "private, no-store"
     # stylesheets are hashed and cached for a year; the ES modules import each other by name,

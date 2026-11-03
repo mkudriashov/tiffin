@@ -340,7 +340,7 @@ def install_web_command(h: Handlers, app: App) -> None:
         url = issue_login_link(app, handler.db, inbound.person)
         handler.outbox.reply(
             inbound.person,
-            f'Open this five-minute sign-in link: <a href="{url}">Open your page</a>. '
+            f'Open this sign-in link within 15 minutes: <a href="{url}">Open your page</a>. '
             "It works once and signs in this device for 90 days.",
             sensitive=True,
         )

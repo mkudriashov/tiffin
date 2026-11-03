@@ -156,10 +156,17 @@ def _hash(token: str) -> str:
     return hashlib.sha256(token.encode("ascii")).hexdigest()
 
 
+#: Long enough for a first sign-in through a gate in front of the page (an emailed code,
+#: say), and still one use only.
+LINK_MINUTES = 15
+#: A link that has run out or was used already, as opposed to one that is not a link at all.
+LINK_GONE = "link gone"
+
+
 def issue_login_link(app: App, db: Db, person: Person) -> str:
-    """Create a five-minute, one-use link for the person identified by Telegram."""
+    """Create a one-use link, good for LINK_MINUTES, for the person identified by Telegram."""
     token = pysecrets.token_urlsafe(32)
-    expires = app.clock.now_utc() + dt.timedelta(minutes=5)
+    expires = app.clock.now_utc() + dt.timedelta(minutes=LINK_MINUTES)
     db.insert(
         "web_login_links",
         person_id=person.id,
@@ -433,7 +440,7 @@ class IdentityMiddleware:
         chat app's link preview cannot use up the one use before the person does."""
         live = await run_in_threadpool(link_is_live, self.resolver.app, token)
         if not live:
-            await _reject(scope, receive, send, "bad link", mode=self.settings.mode)
+            await _reject(scope, receive, send, LINK_GONE, mode=self.settings.mode)
             return
         action = html.escape(self.settings.root_path + "/", quote=True)
         page = _CONFIRM_PAGE.format(action=action, token=html.escape(token, quote=True))
@@ -442,8 +449,10 @@ class IdentityMiddleware:
     async def _sign_in(self, scope: Scope, receive: Receive, send: Send) -> None:
         headers = Headers(scope=scope)
         origin = headers.get("origin")
-        if (origin and origin.rstrip("/") != self.settings.origin) or (
-            headers.get("sec-fetch-site", "") == "cross-site"
+        site = headers.get("sec-fetch-site", "")
+        null_but_same_site = origin == "null" and site == "same-origin"
+        if (origin and not null_but_same_site and origin.rstrip("/") != self.settings.origin) or (
+            site == "cross-site"
         ):
             await _reject(scope, receive, send, "bad link", mode=self.settings.mode)
             return
@@ -469,7 +478,7 @@ class IdentityMiddleware:
             consume_login_link, self.resolver.app, tokens[0], current[0].id if current else None
         )
         if found is None:
-            await _reject(scope, receive, send, "bad link", mode=self.settings.mode)
+            await _reject(scope, receive, send, LINK_GONE, mode=self.settings.mode)
             return
         _, session = found
         response: Response = RedirectResponse(self.settings.root_path + "/", status_code=303)
@@ -521,6 +530,10 @@ _REFUSED_SAYS = {
         "This identity is not linked. Send <code>/web</code> to your bot for a new sign-in link."
     ),
     NO_IDENTITY: ("Send <code>/web</code> to your bot for a sign-in link."),
+    LINK_GONE: (
+        "This sign-in link has expired or was used already. "
+        "Send <code>/web</code> to your bot for a new one."
+    ),
 }
 _HEADER_REFUSED_SAYS = {
     UNKNOWN_IDENTITY: (
@@ -545,12 +558,11 @@ _REFUSED_PAGE = (
 _CONFIRM_PAGE = (
     '<!doctype html><html lang="en-GB"><head><meta charset="utf-8">'
     '<meta name="viewport" content="width=device-width, initial-scale=1">'
-    '<meta name="robots" content="noindex"><meta name="referrer" content="no-referrer">'
+    '<meta name="robots" content="noindex"><meta name="referrer" content="same-origin">'
     "<title>Sign in</title></head>"
     '<body style="font:16px/1.5 system-ui,sans-serif;margin:2rem;max-width:36rem">'
     "<h1>Sign in to Tiffin</h1>"
-    "<p>This link signs this phone or computer in as you. It works once and only for a few "
-    "minutes.</p>"
+    "<p>This link signs this phone or computer in as you. It works once, for 15 minutes.</p>"
     '<form method="post" action="{action}">'
     '<input type="hidden" name="k" value="{token}">'
     '<button type="submit" style="font:inherit;padding:.6rem 1.2rem">Sign in on this device'

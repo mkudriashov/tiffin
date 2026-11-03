@@ -542,5 +542,5 @@ def test_25_an_answer_about_a_person_is_never_stored_by_anything_downstream(page
         assert answer.status_code == 200, path
         assert answer.headers["cache-control"] == "private, no-store", path
         assert answer.headers["x-content-type-options"] == "nosniff", path
-        assert answer.headers["referrer-policy"] == "no-referrer", path
+        assert answer.headers["referrer-policy"] == "same-origin", path
         assert "frame-ancestors 'none'" in answer.headers["content-security-policy"], path

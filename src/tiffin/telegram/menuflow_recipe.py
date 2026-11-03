@@ -450,7 +450,7 @@ class MenuRecipeFlow:
             h.outbox.reply(
                 person,
                 f'<a href="{url}">Open your recipe book</a>. This sign-in link works once '
-                "for five minutes.",
+                "for 15 minutes.",
                 sensitive=True,
             )
             return "handled"

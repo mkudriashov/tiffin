@@ -120,16 +120,16 @@ def test_opening_the_link_spends_nothing_so_a_preview_cannot_burn_it(
     assert not link_is_live(app, _token(link))
 
 
-def test_the_confirm_page_sends_no_referrer_and_is_not_cached_or_indexed(
+def test_the_confirm_page_sends_no_referrer_to_other_sites_and_is_not_cached_or_indexed(
     config, fixture_db, two_persons, frozen_clock
 ) -> None:
     app = _app(config, fixture_db, frozen_clock)
     owner = app.registry(fixture_db).require("owner")
     page = _client(app).get(issue_login_link(app, fixture_db, owner))
-    assert page.headers["referrer-policy"] == "no-referrer"
+    assert page.headers["referrer-policy"] == "same-origin"
     assert "no-store" in page.headers["cache-control"]
     assert page.headers["x-robots-tag"] == "noindex"
-    assert 'name="referrer" content="no-referrer"' in page.text
+    assert 'name="referrer" content="same-origin"' in page.text
     assert "<script" not in page.text
 
 
@@ -149,9 +149,55 @@ def test_an_expired_link_is_not_offered(config, fixture_db, two_persons, frozen_
     app = _app(config, fixture_db, frozen_clock)
     owner = app.registry(fixture_db).require("owner")
     link = issue_login_link(app, fixture_db, owner)
-    frozen_clock.advance(minutes=6)
-    assert _client(app).get(link).status_code == 403
+    frozen_clock.advance(minutes=14)
+    assert (
+        _client(app).get(link).status_code == 200
+    )  # 15 minutes: room for a first sign-in at a gate
+    frozen_clock.advance(minutes=2)
+    expired = _client(app).get(link)
+    assert expired.status_code == 403
+    assert "expired or was used already" in expired.text
     assert sign_in(_client(app), link).status_code == 403
+
+
+def test_safari_null_origin_signs_in_only_when_the_browser_says_same_origin(
+    config, fixture_db, two_persons, frozen_clock
+) -> None:
+    """Safari, from a page with a no-referrer policy, sends Origin: null.
+
+    Seen on a real iPhone on 3 Nov."""
+    app = _app(config, fixture_db, frozen_clock)
+    owner = app.registry(fixture_db).require("owner")
+    client = _client(app)
+    token = _token(issue_login_link(app, fixture_db, owner))
+    for headers in (
+        {"Origin": "null"},
+        {"Origin": "null", "Sec-Fetch-Site": "cross-site"},
+        {"Origin": "null", "Sec-Fetch-Site": "same-site"},
+    ):
+        assert (
+            client.post("/", data={"k": token}, headers=headers, follow_redirects=False).status_code
+            == 403
+        ), headers
+    assert link_is_live(app, token)
+    ok = client.post(
+        "/",
+        data={"k": token},
+        headers={"Origin": "null", "Sec-Fetch-Site": "same-origin"},
+        follow_redirects=False,
+    )
+    assert ok.status_code == 303
+
+
+def test_the_confirm_page_does_not_tell_the_browser_to_drop_its_origin(
+    config, fixture_db, two_persons, frozen_clock
+) -> None:
+    app = _app(config, fixture_db, frozen_clock)
+    page = _client(app).get(
+        issue_login_link(app, fixture_db, app.registry(fixture_db).require("owner"))
+    )
+    assert 'content="same-origin"' in page.text and "no-referrer" not in page.text
+    assert page.headers.get("referrer-policy") == "same-origin"
 
 
 def test_posting_without_a_token_or_with_a_huge_body_signs_nobody_in(
