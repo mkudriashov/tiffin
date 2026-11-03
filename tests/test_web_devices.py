@@ -57,7 +57,16 @@ def test_cookie_flags_and_cross_person_device_refusal(
     assert "samesite=lax" in cookie.lower()
     assert "secure" in cookie.lower()
     assert owner_client.get("/api/whoami").json()["person_id"] == owner.id
-    assert sign_in(owner_client, owner_link).status_code == 403
+    # a spent link on the device it signed in just opens the page (3 Nov 2026: one tap from a
+    # message); on any other device it is refused
+    reopened = sign_in(owner_client, owner_link)
+    assert reopened.status_code == 303 and reopened.headers["location"] == "/"
+    assert (
+        sign_in(
+            TestClient(create_app(app), base_url="https://tiffin.example.com"), owner_link
+        ).status_code
+        == 403
+    )
     sign_in(partner_client, partner_link)
     another_owner_link = issue_login_link(app, fixture_db, owner)
     assert sign_in(partner_client, another_owner_link).status_code == 403

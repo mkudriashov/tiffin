@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from threading import Lock
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from . import __version__, log
 from .clock import DEFAULT_CLOCK, Clock
@@ -119,7 +119,17 @@ class App:
             state_dir=self.config.paths.state,
             clock=self.clock,
             alert_cooldown_min=int(self.config.get("telegram.alert_cooldown_min", 180)),
+            link_signer=self._page_link_signer(db),
         )
+
+    def _page_link_signer(self, db: Db) -> Any:
+        """Links to the page in a message sign the recipient in (web.identity.sign_page_links);
+        None when the page is off or has no public address, so nothing is issued for nothing."""
+        if not self.config.get("web.enabled", True) or not str(self.config.get("web.origin", "")):
+            return None
+        from .web.identity import sign_page_links  # noqa: PLC0415 (web imports this module)
+
+        return lambda person, text: sign_page_links(self, db, person, text)
 
     def gateway(self, db: Db) -> Gateway | None:
         """Bind a provider to this caller's database and consent gate."""

@@ -38,10 +38,19 @@ class Response:
 Transport = Callable[[str, str, bytes | None, Mapping[str, str], float], Response]
 
 
+#: Sent when a caller names no User-Agent. urllib's own ("Python-urllib/3.x") is refused outright
+#: by Cloudflare's browser check (error 1010), which fronts intervals.icu and many a page's own
+#: address: on 3 Nov 2026 that made `tiffin doctor` report both as broken while both worked.
+DEFAULT_USER_AGENT = "tiffin (+https://github.com/mkudriashov/tiffin)"
+
+
 def urllib_transport(
     url: str, method: str, data: bytes | None, headers: Mapping[str, str], timeout_s: float
 ) -> Response:
-    req = urllib.request.Request(url, data=data, method=method, headers=dict(headers))
+    sent = dict(headers)
+    if not any(k.lower() == "user-agent" for k in sent):
+        sent["User-Agent"] = DEFAULT_USER_AGENT
+    req = urllib.request.Request(url, data=data, method=method, headers=sent)
     try:
         with urllib.request.urlopen(req, timeout=timeout_s) as resp:
             return Response(

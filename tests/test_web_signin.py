@@ -130,7 +130,10 @@ def test_the_confirm_page_sends_no_referrer_to_other_sites_and_is_not_cached_or_
     assert "no-store" in page.headers["cache-control"]
     assert page.headers["x-robots-tag"] == "noindex"
     assert 'name="referrer" content="same-origin"' in page.text
-    assert "<script" not in page.text
+    # one script, the page's own file that presses the button; nothing inline, nothing foreign
+    assert (
+        page.text.count("<script") == 1 and '<script src="/signin.js" defer></script>' in page.text
+    )
 
 
 def test_a_bad_or_spent_link_shows_the_refusal_and_echoes_nothing(

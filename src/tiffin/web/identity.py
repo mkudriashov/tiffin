@@ -65,6 +65,21 @@ IDLE_DAYS = 14
 SESSION_DAYS = 90
 SEEN_EVERY_HOURS = 12
 MAX_FORM_BYTES = 2048
+#: How long a link inside one of the bot's messages can still sign a device in. A menu sent at
+#: 18:00 is read the next morning, and a week's list across the week. Still one use: after it, the
+#: device's own session carries on, and a spent link on a signed-in device just opens the page.
+MESSAGE_LINK_DAYS = 7
+#: The one script the sign-in page loads: it presses the button, so a link opens the page in one
+#: tap. Served before identity (a signed-out device must be able to fetch it) and has no secrets.
+SIGNIN_SCRIPT_PATH = "/signin.js"
+SIGNIN_SCRIPT = (
+    "(function(){var f=document.getElementById('go');"
+    "if(f&&!f.dataset.sent){f.dataset.sent='1';f.submit();}})();\n"
+)
+#: What a link may ask the page to open after signing in: tab and the few things a tab reads.
+#: Anything else is dropped, so a link can never carry the page somewhere it would not go itself.
+NEXT_KEYS = ("tab", "date", "day", "slot", "list", "metric")
+_NEXT_VALUE = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.:")
 
 
 def login_digest(login: str) -> str:
@@ -163,19 +178,83 @@ LINK_MINUTES = 15
 LINK_GONE = "link gone"
 
 
-def issue_login_link(app: App, db: Db, person: Person) -> str:
-    """Create a one-use link, good for LINK_MINUTES, for the person identified by Telegram."""
+def _issue_token(app: App, db: Db, person: Person, minutes: int) -> str:
+    """A one-use sign-in token for `person`, good for `minutes`. Only its hash is stored."""
     token = pysecrets.token_urlsafe(32)
-    expires = app.clock.now_utc() + dt.timedelta(minutes=LINK_MINUTES)
+    expires = app.clock.now_utc() + dt.timedelta(minutes=minutes)
     db.insert(
         "web_login_links",
         person_id=person.id,
         token_hash=_hash(token),
         expires_at=expires.strftime("%Y-%m-%d %H:%M:%S"),
     )
+    return token
+
+
+def issue_login_link(app: App, db: Db, person: Person) -> str:
+    """Create a one-use link, good for LINK_MINUTES, for the person identified by Telegram."""
+    token = _issue_token(app, db, person, LINK_MINUTES)
     origin = str(app.config.get("web.origin")).rstrip("/")
     root = str(app.config.get("web.root_path", "")).rstrip("/")
     return f"{origin}{root}/?k={token}"
+
+
+def sign_page_links(app: App, db: Db, person: Person, text_html: str) -> str:
+    """Make every link to the page in a message to `person` sign their device in on the way.
+
+    3 Nov 2026: a menu link sent the partner to a sign-in page instead of the menu. A chat app
+    opens links in its own browser, which has its own cookies, and a session ends after 14 idle
+    days, so a plain link to the page often lands signed out. Each message gets one token, good
+    for MESSAGE_LINK_DAYS and one use, shared by all its links; a device already signed in never
+    spends it. Only telegram mode with a configured origin; links elsewhere are left alone.
+    The ledger keeps the message without the token (Outbox stores the unsigned text).
+    """
+    if str(app.config.get("web.identity_mode", "telegram")) != "telegram":
+        return text_html
+    origin = str(app.config.get("web.origin", "")).rstrip("/")
+    root = str(app.config.get("web.root_path", "")).rstrip("/")
+    if not origin:
+        return text_html
+    base = html.escape(origin + root, quote=True)
+    marker = f'href="{base}'
+    if marker not in text_html:
+        return text_html
+    token: str | None = None
+    out: list[str] = []
+    rest = text_html
+    while marker in rest:
+        before, after = rest.split(marker, 1)
+        end = after.find('"')
+        if end < 0:
+            break
+        tail = after[:end]
+        out.append(before)
+        # only the page's own front door takes a token: the root, with or without a query
+        query_part = tail.lstrip("/").lstrip("?")
+        already = any(p.startswith("k=") for p in query_part.replace("&amp;", "&").split("&"))
+        if not already and (tail in ("", "/") or tail.startswith(("/?", "?"))):
+            if token is None:
+                token = _issue_token(app, db, person, MESSAGE_LINK_DAYS * 24 * 60)
+            query = tail.lstrip("/").lstrip("?")
+            joined = f"{query}&amp;k={token}" if query else f"k={token}"
+            out.append(f'href="{base}/?{joined}"')
+        else:
+            out.append(f'href="{base}{tail}"')
+        rest = after[end + 1 :]
+    out.append(rest)
+    return "".join(out)
+
+
+def safe_next(query: str) -> str:
+    """The part of a link's query the page may open after sign-in, re-encoded; "" for none."""
+    kept: list[str] = []
+    for key, values in parse_qs(query, keep_blank_values=False).items():
+        if key not in NEXT_KEYS or not values:
+            continue
+        value = values[0]
+        if 0 < len(value) <= 40 and set(value) <= _NEXT_VALUE:
+            kept.append(f"{key}={value}")
+    return "&".join(kept)
 
 
 def consume_login_link(
@@ -211,20 +290,23 @@ def consume_login_link(
         return person, session
 
 
+def live_link_person(app: App, token: str) -> int | None:
+    """Whose sign-in link this is, if it could be used now; None otherwise. Reads only."""
+    if len(token) > 128 or not token.isascii():
+        return None
+    with Db.open(app.config.paths.db, clock=app.clock, migrate_first=False) as db:
+        row = db.one(
+            "SELECT l.person_id FROM web_login_links l "
+            "LEFT JOIN web_link_uses u ON u.link_id = l.id "
+            "WHERE l.token_hash = ? AND l.expires_at > ? AND u.id IS NULL",
+            (_hash(token), app.clock.utc_stamp()),
+        )
+        return None if row is None else int(row["person_id"])
+
+
 def link_is_live(app: App, token: str) -> bool:
     """Whether a sign-in link could be used now. Reads only: a preview must not spend it."""
-    if len(token) > 128 or not token.isascii():
-        return False
-    with Db.open(app.config.paths.db, clock=app.clock, migrate_first=False) as db:
-        return (
-            db.one(
-                "SELECT l.id FROM web_login_links l "
-                "LEFT JOIN web_link_uses u ON u.link_id = l.id "
-                "WHERE l.token_hash = ? AND l.expires_at > ? AND u.id IS NULL",
-                (_hash(token), app.clock.utc_stamp()),
-            )
-            is not None
-        )
+    return live_link_person(app, token) is not None
 
 
 def device_for(app: App, token: str, *, touch: bool = False) -> tuple[Person, int] | None:
@@ -353,6 +435,13 @@ class IdentityMiddleware:
             return
         collapse_prefix(scope)
         path = route_path(scope)
+        if path == SIGNIN_SCRIPT_PATH and self.settings.mode == "telegram":
+            await Response(
+                SIGNIN_SCRIPT,
+                media_type="text/javascript",
+                headers={"Cache-Control": "public, max-age=3600"},
+            )(scope, receive, send)
+            return
         if path in EXEMPT_PATHS:
             await self.app(scope, receive, send)
             return
@@ -438,12 +527,29 @@ class IdentityMiddleware:
     async def _offer_link(self, scope: Scope, receive: Receive, send: Send, token: str) -> None:
         """A page whose button sends the token back. Opening the link spends nothing, so a
         chat app's link preview cannot use up the one use before the person does."""
-        live = await run_in_threadpool(link_is_live, self.resolver.app, token)
-        if not live:
+        nxt = safe_next(scope.get("query_string", b"").decode("latin-1"))
+        target = self.settings.root_path + "/" + (f"?{nxt}" if nxt else "")
+        owner_id = await run_in_threadpool(live_link_person, self.resolver.app, token)
+        # A device already signed in as the link's person, or opening a link that is spent or
+        # out of date, goes straight to the page and spends nothing. A device signed in as
+        # someone else gets the sign-in page, whose button refuses to switch it
+        # (consume_login_link).
+        existing = cookie_parser(Headers(scope=scope).get("cookie", "")).get(SESSION_COOKIE)
+        if existing:
+            current = await run_in_threadpool(device_for, self.resolver.app, existing)
+            if current is not None and owner_id in (None, current[0].id):
+                await RedirectResponse(target, status_code=303)(scope, receive, send)
+                return
+        if owner_id is None:
             await _reject(scope, receive, send, LINK_GONE, mode=self.settings.mode)
             return
         action = html.escape(self.settings.root_path + "/", quote=True)
-        page = _CONFIRM_PAGE.format(action=action, token=html.escape(token, quote=True))
+        page = _CONFIRM_PAGE.format(
+            action=action,
+            token=html.escape(token, quote=True),
+            next=html.escape(nxt, quote=True),
+            script=html.escape(self.settings.root_path + SIGNIN_SCRIPT_PATH, quote=True),
+        )
         await HTMLResponse(page, headers={"X-Robots-Tag": "noindex"})(scope, receive, send)
 
     async def _sign_in(self, scope: Scope, receive: Receive, send: Send) -> None:
@@ -465,10 +571,12 @@ class IdentityMiddleware:
                 return
             if not message.get("more_body", False):
                 break
-        tokens = parse_qs(body.decode("latin-1")).get("k")
+        form = parse_qs(body.decode("latin-1"))
+        tokens = form.get("k")
         if not tokens:
             await _reject(scope, receive, send, NO_IDENTITY, mode=self.settings.mode)
             return
+        nxt = safe_next((form.get("next") or [""])[0])
         cookies = cookie_parser(headers.get("cookie", ""))
         existing = cookies.get(SESSION_COOKIE)
         current = (
@@ -481,7 +589,9 @@ class IdentityMiddleware:
             await _reject(scope, receive, send, LINK_GONE, mode=self.settings.mode)
             return
         _, session = found
-        response: Response = RedirectResponse(self.settings.root_path + "/", status_code=303)
+        response: Response = RedirectResponse(
+            self.settings.root_path + "/" + (f"?{nxt}" if nxt else ""), status_code=303
+        )
         response.set_cookie(
             SESSION_COOKIE,
             session,
@@ -559,14 +669,16 @@ _CONFIRM_PAGE = (
     '<!doctype html><html lang="en-GB"><head><meta charset="utf-8">'
     '<meta name="viewport" content="width=device-width, initial-scale=1">'
     '<meta name="robots" content="noindex"><meta name="referrer" content="same-origin">'
-    "<title>Sign in</title></head>"
+    "<title>Opening Tiffin</title></head>"
     '<body style="font:16px/1.5 system-ui,sans-serif;margin:2rem;max-width:36rem">'
-    "<h1>Sign in to Tiffin</h1>"
-    "<p>This link signs this phone or computer in as you. It works once, for 15 minutes.</p>"
-    '<form method="post" action="{action}">'
+    "<h1>Opening Tiffin</h1>"
+    "<p>This link signs this phone or computer in as you, once. "
+    "If the page does not open by itself, press the button.</p>"
+    '<form method="post" action="{action}" id="go">'
     '<input type="hidden" name="k" value="{token}">'
-    '<button type="submit" style="font:inherit;padding:.6rem 1.2rem">Sign in on this device'
-    "</button></form></body></html>"
+    '<input type="hidden" name="next" value="{next}">'
+    '<button type="submit" style="font:inherit;padding:.6rem 1.2rem">Open Tiffin'
+    '</button></form><script src="{script}" defer></script></body></html>'
 )
 
 #: Lax, not Strict: a link opened from a chat app is a cross-site navigation, and a Strict

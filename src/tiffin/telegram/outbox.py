@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -48,6 +49,7 @@ class Outbox:
         state_dir: Path | None = None,
         clock: Clock = DEFAULT_CLOCK,
         alert_cooldown_min: int = 180,
+        link_signer: Callable[[Person, str], str] | None = None,
     ):
         self.api = api
         self.db = db
@@ -56,6 +58,9 @@ class Outbox:
         self.state_dir = state_dir
         self.clock = clock
         self.alert_cooldown_min = alert_cooldown_min
+        #: turns links to the page into ones that sign the recipient's device in on the way;
+        #: applied to the text sent only, so the ledger never holds a sign-in token
+        self.link_signer = link_signer
         #: how many messages this Outbox has attempted, so a caller can tell whether a handler
         #: said anything at all. A button that answers with silence is the failure the house
         #: rule exists to prevent, and Telegram buttons never expire.
@@ -110,8 +115,15 @@ class Outbox:
             return SendResult(
                 self.db.insert("messages_out", status="dropped_dev", **base), "dropped_dev"
             )
+        outgoing = html
+        if self.link_signer is not None:
+            try:
+                outgoing = self.link_signer(person, html)
+            except Exception:  # a link that does not sign must not cost the message
+                logger.exception("page links not signed", extra={"event": "link_sign_error"})
+                outgoing = html
         try:
-            msg = self.api.send_message(person.chat_id, html, keyboard)
+            msg = self.api.send_message(person.chat_id, outgoing, keyboard)
         except TelegramError as e:
             err = str(e)[:300]
             rid = self.db.insert("messages_out", status="failed", error=err, **base)
